@@ -1,0 +1,43 @@
+{
+  "rule_version": "example-2026-01",
+  "claim_year": 2026,
+  "currency": "EUR",
+  "minimum_yield_tolerance_ratio": 0.8,
+  "maximum_yield_tolerance_ratio": 1.25,
+  "base_income_support": {
+    "default_rate_eur_per_ha": 165.0,
+    "production_type_rates_eur_per_ha": {
+      "olives": 190.0,
+      "vineyards": 210.0,
+      "cereals": 145.0,
+      "cotton": 240.0,
+      "pasture": 120.0
+    }
+  },
+  "eco_scheme_bonus": {
+    "organic_bonus_eur_per_ha": 75.0,
+    "soil_cover_bonus_eur_per_ha": 35.0
+  },
+  "risk_holds": {
+    "public_land_conflict": true,
+    "crop_label_confidence_below": 0.65,
+    "yield_variance_above_ratio": 0.25
+  },
+  "crisis_compensation": {
+    "default_rate_eur_per_ha": 300.0,
+    "maximum_damage_percent": 100,
+    "annual_cap_eur_per_farmer": 75000.0
+  },
+  "first_sale_tax": {
+    "default_tax_rate": 0.13,
+    "product_tax_rates": {
+      "olive_oil": 0.13,
+      "cotton": 0.06,
+      "cereals": 0.06
+    }
+  },
+  "debt_management": {
+    "subsidy_offset_ratio": 0.25,
+    "compensation_offset_ratio": 0.1
+  }
+}
