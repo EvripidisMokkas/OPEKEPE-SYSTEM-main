@@ -136,6 +136,64 @@ class AgroLedgerAPITests(unittest.TestCase):
         self.assertEqual(refreshed["summary"]["documents"], 1)
         self.assertEqual(refreshed["financial_analysis"]["document_coverage"], "complete")
 
+    def test_applicant_screening_flags_declared_public_integrity_exposure(self) -> None:
+        status, response = self.api.handle(
+            "POST",
+            "/applicant-screening",
+            {},
+            {
+                "first_name": "Nikos",
+                "surname": "Farmer",
+                "occupation": "Farmer",
+                "public_integrity_exposure": "yes",
+            },
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["screening"]["status"], "enhanced_audit")
+        self.assertTrue(response["screening"]["enhanced_audit"])
+        self.assertIn("applicant_declared_public_integrity_exposure", response["screening"]["reasons"])
+
+    def test_applicant_screening_clears_unmatched_applicant(self) -> None:
+        status, response = self.api.handle(
+            "POST",
+            "/applicant-screening",
+            {},
+            {
+                "first_name": "Clear",
+                "surname": "Applicant",
+                "occupation": "Farmer",
+                "public_integrity_exposure": "no",
+            },
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["screening"]["status"], "off_the_hook")
+        self.assertFalse(response["screening"]["enhanced_audit"])
+
+    def test_enhanced_audit_document_upload_marks_close_audit(self) -> None:
+        status, dashboard = self.api.handle("GET", "/dashboard/data", {}, {})
+        self.assertEqual(status, 200)
+        farmer_id = dashboard["farmer"]["farmer_id"]
+
+        status, response = self.api.handle(
+            "POST",
+            "/documents",
+            {},
+            {
+                "farmer_id": farmer_id,
+                "document_type": "land",
+                "file_name": "lease.pdf",
+                "file_size": 1024,
+                "enhanced_audit": True,
+            },
+        )
+
+        self.assertEqual(status, 201)
+        self.assertEqual(response["document"]["analysis"]["risk"], "high")
+        self.assertEqual(response["document"]["analysis"]["audit_mode"], "close_audit")
+        self.assertIn("enhanced_audit_queue", response["document"]["analysis"]["checks"])
+
 
 if __name__ == "__main__":
     unittest.main()

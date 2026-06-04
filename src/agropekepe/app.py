@@ -30,6 +30,7 @@ class AgroLedgerAPI:
         routes: dict[tuple[str, str], Callable[[dict[str, list[str]], dict[str, Any]], HandlerResult]] = {
             ("GET", "/health"): self.health,
             ("GET", "/dashboard/data"): self.dashboard_data,
+            ("POST", "/applicant-screening"): self.screen_applicant,
             ("POST", "/documents"): self.submit_document,
             ("POST", "/farmers"): self.create_farmer,
             ("POST", "/parcels"): self.create_parcel,
@@ -54,11 +55,19 @@ class AgroLedgerAPI:
     def dashboard_data(self, query: dict[str, list[str]], payload: dict[str, Any]) -> HandlerResult:
         return 200, _dashboard_payload(self.service)
 
+    def screen_applicant(self, query: dict[str, list[str]], payload: dict[str, Any]) -> HandlerResult:
+        return 200, {"screening": _screen_applicant(payload)}
+
     def submit_document(self, query: dict[str, list[str]], payload: dict[str, Any]) -> HandlerResult:
         document_type = str(payload["document_type"])
         file_name = str(payload["file_name"])
         file_size = int(payload.get("file_size", 0))
-        analysis = _document_analysis(document_type, file_name, file_size)
+        analysis = _document_analysis(
+            document_type,
+            file_name,
+            file_size,
+            enhanced_audit=bool(payload.get("enhanced_audit", False)),
+        )
         document = self.service.repository.add_document_record(
             farmer_id=str(payload["farmer_id"]),
             document_type=document_type,
@@ -396,7 +405,50 @@ def _initialize_demo_services(service: AgroLedgerService) -> None:
     )
 
 
-def _document_analysis(document_type: str, file_name: str, file_size: int) -> dict[str, Any]:
+def _screen_applicant(payload: dict[str, Any]) -> dict[str, Any]:
+    first_name = str(payload["first_name"]).strip()
+    surname = str(payload["surname"]).strip()
+    occupation = str(payload["occupation"]).strip()
+    declared_exposure = str(payload.get("public_integrity_exposure", "no")).strip().lower() == "yes"
+    normalized_name = f"{first_name} {surname}".casefold()
+    local_disclosure_database = {
+        "demo olive farmer": "demo public-integrity disclosure list",
+        "alexis papadopoulos": "public office declaration list",
+        "maria georgiou": "procurement conflict register",
+    }
+    database_source = local_disclosure_database.get(normalized_name)
+    enhanced_audit = declared_exposure or database_source is not None
+    status = "enhanced_audit" if enhanced_audit else "off_the_hook"
+    reasons = []
+    if declared_exposure:
+        reasons.append("applicant_declared_public_integrity_exposure")
+    if database_source is not None:
+        reasons.append("name_surname_matched_public_integrity_database")
+    if not reasons:
+        reasons.append("no_declared_exposure_or_database_match")
+    return {
+        "applicant_name": f"{first_name} {surname}",
+        "occupation": occupation,
+        "status": status,
+        "enhanced_audit": enhanced_audit,
+        "database_checked": True,
+        "database_source": database_source or "no match",
+        "reasons": reasons,
+        "document_audit_mode": "close_audit" if enhanced_audit else "standard_audit",
+        "note": (
+            "Enhanced audit is based on declared public-office/conflict exposure or a neutral database match, "
+            "not political opinion or party preference."
+        ),
+    }
+
+
+def _document_analysis(
+    document_type: str,
+    file_name: str,
+    file_size: int,
+    *,
+    enhanced_audit: bool,
+) -> dict[str, Any]:
     checks = {
         "identity": ["tax_identifier_detected", "name_match_pending"],
         "land": ["parcel_reference_detected", "geometry_review_required"],
@@ -405,12 +457,16 @@ def _document_analysis(document_type: str, file_name: str, file_size: int) -> di
         "crisis": ["incident_date_detected", "evidence_review_required"],
     }
     normalized_type = document_type if document_type in checks else "general"
+    selected_checks = checks.get(normalized_type, ["manual_review_required"])
+    if enhanced_audit:
+        selected_checks = selected_checks + ["enhanced_audit_queue", "cross_document_consistency_review"]
     return {
         "summary": f"{file_name} queued for {document_type} review",
         "file_size": file_size,
         "confidence": "0.82" if file_size else "0.58",
-        "checks": checks.get(normalized_type, ["manual_review_required"]),
-        "risk": "medium" if normalized_type in {"finance", "crisis"} else "low",
+        "checks": selected_checks,
+        "risk": "high" if enhanced_audit else "medium" if normalized_type in {"finance", "crisis"} else "low",
+        "audit_mode": "close_audit" if enhanced_audit else "standard_audit",
     }
 
 
@@ -964,7 +1020,7 @@ DASHBOARD_HTML = """<!doctype html>
       gap: 18px;
       align-items: stretch;
     }
-    .login-copy, .login-form, .card, .modal-panel {
+    .login-copy, .login-form, .registration-form, .card, .modal-panel {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -973,7 +1029,7 @@ DASHBOARD_HTML = """<!doctype html>
     .login-copy { padding: 30px; }
     .login-copy h1 { margin: 0 0 10px; font-size: 32px; letter-spacing: 0; }
     .login-copy p { margin: 0; color: var(--muted); line-height: 1.5; }
-    .login-form { padding: 22px; }
+    .login-form, .registration-form { padding: 22px; }
     label { display: block; color: var(--muted); font-size: 13px; font-weight: 700; margin-bottom: 6px; }
     input, select {
       width: 100%;
@@ -984,6 +1040,7 @@ DASHBOARD_HTML = """<!doctype html>
       background: white;
       color: var(--ink);
     }
+    input[type="radio"] { width: auto; min-height: 0; }
     .field { margin-bottom: 12px; }
     .app { display: none; min-height: 100vh; }
     .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
@@ -1089,6 +1146,15 @@ DASHBOARD_HTML = """<!doctype html>
       gap: 8px;
       flex-wrap: wrap;
       margin-top: 12px;
+    }
+    .quick-actions label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 700;
     }
     .forecast-window {
       border: 2px solid #c8d8d0;
@@ -1197,6 +1263,7 @@ DASHBOARD_HTML = """<!doctype html>
         </div>
       </div>
       <form class="login-form" id="login-form">
+        <h2>Sign In</h2>
         <div class="field">
           <label for="tax-id">Tax identifier</label>
           <input id="tax-id" value="EL123456789" autocomplete="username">
@@ -1206,7 +1273,59 @@ DASHBOARD_HTML = """<!doctype html>
           <input id="password" type="password" value="demo" autocomplete="current-password">
         </div>
         <button type="submit">Enter Dashboard</button>
-        <p class="muted">Use the demo credentials already filled in to inspect the initialized container.</p>
+        <div class="quick-actions">
+          <button class="secondary" id="show-register" type="button">Register new applicant</button>
+        </div>
+        <p class="muted">Use the demo credentials already filled in, or register a new applicant first.</p>
+      </form>
+    </div>
+  </section>
+
+  <section class="login" id="registration" style="display:none">
+    <div class="login-panel">
+      <div class="login-copy">
+        <h1>Applicant Registration</h1>
+        <p>Complete the applicant profile and public-integrity screening before returning to sign in.</p>
+        <div class="quick-actions">
+          <span class="tag">Applicant profile</span>
+          <span class="tag blue">Integrity check</span>
+          <span class="tag warn">Audit routing</span>
+        </div>
+      </div>
+      <form class="registration-form" id="registration-form">
+        <h2>Create Account</h2>
+        <div class="field">
+          <label for="first-name">First name</label>
+          <input id="first-name" value="Demo" autocomplete="given-name" required>
+        </div>
+        <div class="field">
+          <label for="surname">Surname</label>
+          <input id="surname" value="Olive Farmer" autocomplete="family-name" required>
+        </div>
+        <div class="field">
+          <label for="occupation">Occupation</label>
+          <input id="occupation" value="Farmer" autocomplete="organization-title" required>
+        </div>
+        <div class="field">
+          <label for="registration-tax-id">Tax identifier</label>
+          <input id="registration-tax-id" value="EL123456789" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="registration-password">Password</label>
+          <input id="registration-password" type="password" value="demo" autocomplete="new-password" required>
+        </div>
+        <div class="field">
+          <label>Public office or conflict exposure</label>
+          <div class="quick-actions">
+            <label><input type="radio" name="integrity-exposure" value="yes"> Yes</label>
+            <label><input type="radio" name="integrity-exposure" value="no" checked> No</label>
+          </div>
+        </div>
+        <button type="submit">Complete Registration</button>
+        <div class="quick-actions">
+          <button class="secondary" id="back-to-login" type="button">Back to sign in</button>
+        </div>
+        <p class="muted">The integrity check uses public-office/conflict declarations and neutral database matching, not party preference.</p>
       </form>
     </div>
   </section>
@@ -1300,6 +1419,8 @@ DASHBOARD_HTML = """<!doctype html>
     let state = null;
     let selectedCropId = null;
     let cropAnalysisReady = false;
+    let applicantScreening = null;
+    let applicantProfile = null;
     const titles = {
       overview: ["Overview", "Initialized services, payment outlook, and farmer profile"],
       documents: ["Documents", "Upload and review all required farmer records"],
@@ -1313,8 +1434,56 @@ DASHBOARD_HTML = """<!doctype html>
     const fact = (label, value, cls = "") => `<div class="fact"><span class="muted">${label}</span><strong class="${cls}">${value}</strong></div>`;
     const card = (title, body) => `<div class="card"><h2>${title}</h2>${body}</div>`;
 
-    document.getElementById("login-form").addEventListener("submit", (event) => {
+    document.getElementById("show-register").addEventListener("click", () => {
+      document.getElementById("login").style.display = "none";
+      document.getElementById("registration").style.display = "grid";
+    });
+
+    document.getElementById("back-to-login").addEventListener("click", () => {
+      document.getElementById("registration").style.display = "none";
+      document.getElementById("login").style.display = "grid";
+    });
+
+    document.getElementById("registration-form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      applicantProfile = {
+        first_name: document.getElementById("first-name").value.trim(),
+        surname: document.getElementById("surname").value.trim(),
+        occupation: document.getElementById("occupation").value.trim(),
+        tax_identifier: document.getElementById("registration-tax-id").value.trim(),
+        public_integrity_exposure: document.querySelector("input[name='integrity-exposure']:checked").value,
+      };
+      const screeningResponse = await fetch("/applicant-screening", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(applicantProfile),
+      });
+      if (!screeningResponse.ok) throw new Error(`Applicant screening failed: ${screeningResponse.status}`);
+      applicantScreening = (await screeningResponse.json()).screening;
+      document.getElementById("tax-id").value = applicantProfile.tax_identifier;
+      document.getElementById("password").value = document.getElementById("registration-password").value;
+      document.getElementById("registration").style.display = "none";
+      document.getElementById("login").style.display = "grid";
+    });
+
+    document.getElementById("login-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!applicantScreening) {
+        applicantProfile = {
+          first_name: "Demo",
+          surname: "Olive Farmer",
+          occupation: "Farmer",
+          tax_identifier: document.getElementById("tax-id").value.trim(),
+          public_integrity_exposure: "no",
+        };
+        const screeningResponse = await fetch("/applicant-screening", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(applicantProfile),
+        });
+        if (!screeningResponse.ok) throw new Error(`Applicant screening failed: ${screeningResponse.status}`);
+        applicantScreening = (await screeningResponse.json()).screening;
+      }
       document.getElementById("login").style.display = "none";
       document.getElementById("app").style.display = "block";
       loadDashboard();
@@ -1355,6 +1524,7 @@ DASHBOARD_HTML = """<!doctype html>
           document_type: document.getElementById("document-type").value,
           file_name: file.name,
           file_size: file.size,
+          enhanced_audit: applicantScreening?.enhanced_audit || false,
         }),
       });
       input.value = "";
@@ -1419,6 +1589,9 @@ DASHBOARD_HTML = """<!doctype html>
             fact("Farmer type", state.farmer.farmer_type),
             fact("Active farmer", state.farmer.active_farmer ? "Yes" : "No"),
           ].join(""))}
+          ${card("Registration Integrity Check", applicantIntegrity())}
+        </div>
+        <div class="grid two" style="margin-top:14px">
           ${card("Payment Due", [
             fact("Subsidy final", money(state.subsidy_claim.final_amount_eur), "money"),
             fact("Debt offset", money(state.subsidy_claim.debt_offset.offset_eur), "warn-text"),
@@ -1511,7 +1684,11 @@ DASHBOARD_HTML = """<!doctype html>
       document.getElementById("audit").innerHTML = `
         <div class="grid two">
           ${card("Audit Score", `<canvas id="audit-chart"></canvas>`)}
+          ${card("Applicant Audit Mode", applicantIntegrity())}
+        </div>
+        <div class="grid two" style="margin-top:14px">
           ${card("Findings", state.audit_analysis.findings.map((f) => `<div class="fact"><span>${f.text}</span><strong class="${f.level === "warn" ? "warn-text" : "money"}">${f.level}</strong></div>`).join(""))}
+          ${card("Applicant Review Actions", applicantReviewActions())}
         </div>
         <div class="card" style="margin-top:14px">
           <h2>Recent Audit Trail</h2>
@@ -1711,7 +1888,38 @@ DASHBOARD_HTML = """<!doctype html>
 
     function documentAnalysis() {
       if (!state.documents.length) return '<p class="muted">Financial and audit document analysis will populate after upload.</p>';
-      return state.documents.map((doc) => `<div class="fact"><span>${doc.file_name}</span><strong>${doc.analysis.risk} risk</strong></div>`).join("");
+      return state.documents.map((doc) => `<div class="fact"><span>${doc.file_name}<br><span class="muted">${doc.analysis.audit_mode || "standard_audit"}</span></span><strong>${doc.analysis.risk} risk</strong></div>`).join("");
+    }
+
+    function applicantIntegrity() {
+      if (!applicantScreening) return '<p class="muted">Applicant screening has not run in this browser session.</p>';
+      const statusClass = applicantScreening.enhanced_audit ? "warn-text" : "money";
+      return [
+        fact("Applicant", applicantScreening.applicant_name),
+        fact("Occupation", applicantScreening.occupation),
+        fact("Status", applicantScreening.status, statusClass),
+        fact("Document audit mode", applicantScreening.document_audit_mode, statusClass),
+        fact("Database checked", applicantScreening.database_checked ? "yes" : "no"),
+        fact("Database source", applicantScreening.database_source),
+        fact("Reason", applicantScreening.reasons.join(", ")),
+      ].join("") + `<p class="muted" style="margin-bottom:0">${applicantScreening.note}</p>`;
+    }
+
+    function applicantReviewActions() {
+      if (!applicantScreening) return '<p class="muted">Complete registration screening to populate applicant review actions.</p>';
+      if (!applicantScreening.enhanced_audit) {
+        return [
+          fact("Review level", "standard audit", "money"),
+          fact("Release status", "off the hook", "money"),
+          fact("Document handling", "normal evidence checks"),
+        ].join("");
+      }
+      return [
+        fact("Review level", "close audit", "warn-text"),
+        fact("Document handling", "cross-document consistency review", "warn-text"),
+        fact("Choices inside system", "flag material changes for auditor review", "warn-text"),
+        fact("Release status", "requires reviewer clearance", "warn-text"),
+      ].join("");
     }
 
     function seedTable() {
