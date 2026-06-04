@@ -37,14 +37,70 @@ The goal is to make every subsidy decision explainable, geospatially verifiable,
 - [Google Earth Engine](https://cloud.google.com/earth-engine) provides cloud processing for satellite imagery and geospatial datasets; [Google Maps Platform](https://developers.google.com/maps/documentation/javascript) provides map display and geocoding services.
 - [AADE myDATA](https://www.aade.gr/mydata-ilektronika-biblia) is Greece's digital accounting application and should be treated as the canonical integration target for invoice/tax reconciliation.
 
-## Quick start
+## Launch from Windows Terminal or VS Code Terminal
 
-```bash
-PYTHONPATH=src python -m unittest discover -s tests
-PYTHONPATH=src python -m agropekepe.cli --database /tmp/agroledger.sqlite3 init-db
-PYTHONPATH=src python -m agropekepe.cli --database /tmp/agroledger-demo.sqlite3 demo
-PYTHONPATH=src python -m agropekepe.cli --database /tmp/agroledger.sqlite3 serve --host 127.0.0.1 --port 8080
+Use these commands in PowerShell, not Git Bash. Open a terminal in the project folder, or run:
+
+```powershell
+cd C:\Users\user\Documents\OPEKEPE-SYSTEM-main
 ```
+
+Check Python and install the local package:
+
+```powershell
+py --version
+py -m pip install -e .
+```
+
+Run the test suite:
+
+```powershell
+$env:PYTHONPATH = "src"
+py -m unittest discover -s tests
+```
+
+Create the SQLite database:
+
+```powershell
+$env:PYTHONPATH = "src"
+py -m agropekepe.cli --database .\agroledger.sqlite3 init-db
+```
+
+Optional: create and print a full demo record:
+
+```powershell
+$env:PYTHONPATH = "src"
+py -m agropekepe.cli --database .\agroledger-demo.sqlite3 demo
+```
+
+Start the app:
+
+```powershell
+$env:PYTHONPATH = "src"
+py -m agropekepe.cli --database .\agroledger.sqlite3 serve --host 127.0.0.1 --port 8080
+```
+
+Leave that terminal running. Then open this URL in your browser:
+
+```text
+http://127.0.0.1:8080/
+```
+
+Useful health check from a second PowerShell terminal:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8080/health
+```
+
+The browser portal is available at `/`, and JSON API routes include `/health`, `/dashboard/data`, `/farmers`, `/parcels`, `/crop-seasons`, `/subsidy-claims/calculate`, and `/annual-ledger`.
+
+After installing the package with `py -m pip install -e .`, this shorter command also works:
+
+```powershell
+agroledger --database .\agroledger.sqlite3 serve --host 127.0.0.1 --port 8080
+```
+
+If you are running from inside a Docker container, use `--host 0.0.0.0` instead of `--host 127.0.0.1` and publish container port `8080` to your host.
 
 ## Application capabilities
 

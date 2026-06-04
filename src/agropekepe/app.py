@@ -305,6 +305,7 @@ def _dashboard_payload(service: AgroLedgerService) -> dict[str, Any]:
             {"name": "Debt offset management", "status": "initialized", "records": len(debts)},
             {"name": "Document intake and review", "status": "initialized", "records": len(documents)},
             {"name": "CAP subsidy calculation", "status": "initialized", "records": len(subsidy_claim.line_items)},
+            {"name": "Crop weather forecast", "status": "initialized", "records": 20},
             {"name": "Crisis compensation", "status": "initialized", "records": len(crisis_events)},
             {"name": "AI assistant guidance", "status": "initialized", "records": 4},
             {"name": "Audit trail", "status": "initialized", "records": len(service.repository.audit_events())},
@@ -319,6 +320,7 @@ def _dashboard_payload(service: AgroLedgerService) -> dict[str, Any]:
         "annual_ledger": to_jsonable(annual_ledger),
         "land_declaration": _land_declaration_state(parcels),
         "weather_conditions": _weather_conditions(),
+        "crop_forecast": _crop_forecast_service(crop_seasons, parcels),
         "seed_analysis": _seed_analysis(crop_seasons, parcels),
         "financial_analysis": _financial_analysis(annual_ledger, subsidy_claim, compensation, documents, first_sales),
         "audit_analysis": _audit_analysis(service.repository.audit_events(), subsidy_claim, documents),
@@ -511,6 +513,102 @@ def _weather_conditions() -> dict[str, Any]:
             {"day": "Day 4", "condition": "cloud", "rain_mm": "3", "risk": "low"},
         ],
     }
+
+
+def _crop_forecast_service(crop_seasons: list[Any], parcels: list[Any]) -> dict[str, Any]:
+    declared_area = sum((parcel.eligible_area_ha for parcel in parcels), Decimal("0"))
+    if declared_area <= 0:
+        declared_area = Decimal("1")
+    declared_crop = crop_seasons[0].production_type if crop_seasons else "olives"
+    soil_profile = {
+        "texture": "clay loam",
+        "organic_matter_percent": "2.4",
+        "ph": "7.3",
+        "drainage": "moderate",
+        "water_holding": "medium-low",
+    }
+    options = []
+    for crop in _crop_forecast_catalog():
+        expected_yield_ha = Decimal(str(crop["base_yield_tonnes_per_ha"]))
+        soil_factor = Decimal(str(crop["soil_factor"]))
+        forecast_yield_ha = expected_yield_ha
+        max_yield_ha = expected_yield_ha * Decimal(str(crop["max_factor"]))
+        forecast_tonnes = forecast_yield_ha * declared_area
+        max_tonnes = max_yield_ha * declared_area
+        price = Decimal(str(crop["market_price_eur_per_tonne"]))
+        input_cost = Decimal(str(crop["input_cost_eur_per_ha"])) * declared_area
+        field_cost = Decimal(str(crop["field_operations_eur_per_ha"])) * declared_area
+        irrigation_cost = Decimal(str(crop["irrigation_eur_per_ha"])) * declared_area
+        protection_cost = Decimal(str(crop["crop_protection_eur_per_ha"])) * declared_area
+        total_cost = input_cost + field_cost + irrigation_cost + protection_cost
+        gross_income = forecast_tonnes * price
+        subsidy = Decimal(str(crop["subsidy_eur_per_ha"])) * declared_area
+        gross_with_subsidy = gross_income + subsidy
+        net_margin = gross_with_subsidy - total_cost
+        options.append(
+            {
+                "id": crop["id"],
+                "label": crop["label"],
+                "category": crop["category"],
+                "declared_area_ha": str(declared_area),
+                "declared_crop_match": crop["id"] == declared_crop,
+                "forecast_yield_tonnes_per_ha": str(forecast_yield_ha.quantize(Decimal("0.01"))),
+                "forecast_yield_tonnes": str(forecast_tonnes.quantize(Decimal("0.01"))),
+                "max_yield_tonnes_per_ha": str(max_yield_ha.quantize(Decimal("0.01"))),
+                "max_yield_tonnes": str(max_tonnes.quantize(Decimal("0.01"))),
+                "market_price_eur_per_tonne": str(price),
+                "gross_income_eur": str(gross_income.quantize(Decimal("0.01"))),
+                "subsidy_eur": str(subsidy.quantize(Decimal("0.01"))),
+                "gross_with_subsidy_eur": str(gross_with_subsidy.quantize(Decimal("0.01"))),
+                "total_cost_eur": str(total_cost.quantize(Decimal("0.01"))),
+                "net_margin_eur": str(net_margin.quantize(Decimal("0.01"))),
+                "soil_score": str((soil_factor * Decimal("100")).quantize(Decimal("1"))),
+                "yield_source": "stored database benchmark",
+                "soil_note": crop["soil_note"],
+                "solution": crop["solution"],
+            }
+        )
+    best = max(options, key=lambda row: Decimal(row["net_margin_eur"]))
+    return {
+        "service_name": "Stored Yield Forecast and Techno-Economic Analysis",
+        "declared_area_ha": str(declared_area),
+        "declared_crop": declared_crop,
+        "forecast_source": "stored yield database",
+        "soil_profile": soil_profile,
+        "options": options,
+        "best_option": best,
+        "solutions": [
+            "Use drought-tolerant varieties or delay planting where the weather score falls below 75 percent.",
+            "Prioritize crops with high net margin after subsidy, not only high gross income.",
+            "Add soil organic matter and moisture retention measures for summer crops on clay-loam fields.",
+            "Keep first-sale invoices tied to the selected crop so gross product income can be reconciled against subsidies.",
+        ],
+    }
+
+
+def _crop_forecast_catalog() -> list[dict[str, Any]]:
+    return [
+        {"id": "olives", "label": "Olives", "category": "perennial", "base_yield_tonnes_per_ha": "4.5", "max_factor": "1.18", "market_price_eur_per_tonne": "4300", "input_cost_eur_per_ha": "360", "field_operations_eur_per_ha": "540", "irrigation_eur_per_ha": "210", "crop_protection_eur_per_ha": "185", "subsidy_eur_per_ha": "560", "water_need_mm": "420", "soil_factor": "0.94", "soil_note": "Clay-loam supports olives if drainage is maintained.", "weather_note": "Drought watch reduces oil fruit set without irrigation.", "solution": "Use deficit irrigation, pruning, and fruit-fly monitoring before heat peaks."},
+        {"id": "durum_wheat", "label": "Durum wheat", "category": "cereal", "base_yield_tonnes_per_ha": "5.8", "max_factor": "1.12", "market_price_eur_per_tonne": "315", "input_cost_eur_per_ha": "155", "field_operations_eur_per_ha": "410", "irrigation_eur_per_ha": "165", "crop_protection_eur_per_ha": "120", "subsidy_eur_per_ha": "390", "water_need_mm": "360", "soil_factor": "0.91", "soil_note": "Good fit for neutral pH and moderate water holding.", "weather_note": "Low rainfall affects grain fill.", "solution": "Shift sowing date and keep nitrogen split to rainfall events."},
+        {"id": "barley", "label": "Barley", "category": "cereal", "base_yield_tonnes_per_ha": "5.2", "max_factor": "1.10", "market_price_eur_per_tonne": "260", "input_cost_eur_per_ha": "130", "field_operations_eur_per_ha": "360", "irrigation_eur_per_ha": "120", "crop_protection_eur_per_ha": "95", "subsidy_eur_per_ha": "350", "water_need_mm": "310", "soil_factor": "0.90", "soil_note": "Tolerates lighter moisture stress than wheat.", "weather_note": "Forecast favors barley over higher-water cereals.", "solution": "Use certified seed and early weed control to protect tillering."},
+        {"id": "corn", "label": "Corn", "category": "irrigated", "base_yield_tonnes_per_ha": "11.5", "max_factor": "1.20", "market_price_eur_per_tonne": "245", "input_cost_eur_per_ha": "410", "field_operations_eur_per_ha": "620", "irrigation_eur_per_ha": "520", "crop_protection_eur_per_ha": "210", "subsidy_eur_per_ha": "420", "water_need_mm": "620", "soil_factor": "0.86", "soil_note": "Needs strong moisture management on medium-low water holding soil.", "weather_note": "Current drought watch strongly limits rain-fed yield.", "solution": "Plant only with secured irrigation schedule and evapotranspiration monitoring."},
+        {"id": "cotton", "label": "Cotton", "category": "industrial", "base_yield_tonnes_per_ha": "3.6", "max_factor": "1.16", "market_price_eur_per_tonne": "760", "input_cost_eur_per_ha": "390", "field_operations_eur_per_ha": "610", "irrigation_eur_per_ha": "430", "crop_protection_eur_per_ha": "260", "subsidy_eur_per_ha": "740", "water_need_mm": "560", "soil_factor": "0.88", "soil_note": "Moderate fit; compaction must be avoided.", "weather_note": "Heat helps cotton but water stress lowers boll retention.", "solution": "Use drip scheduling and pest scouting before flowering."},
+        {"id": "tomatoes", "label": "Processing tomatoes", "category": "vegetable", "base_yield_tonnes_per_ha": "78", "max_factor": "1.14", "market_price_eur_per_tonne": "115", "input_cost_eur_per_ha": "1250", "field_operations_eur_per_ha": "1450", "irrigation_eur_per_ha": "780", "crop_protection_eur_per_ha": "560", "subsidy_eur_per_ha": "520", "water_need_mm": "590", "soil_factor": "0.89", "soil_note": "Good pH, but drainage and calcium management matter.", "weather_note": "Hot dry days increase blossom-end stress.", "solution": "Use drip fertigation, mulch, and calcium monitoring."},
+        {"id": "potatoes", "label": "Potatoes", "category": "vegetable", "base_yield_tonnes_per_ha": "34", "max_factor": "1.13", "market_price_eur_per_tonne": "410", "input_cost_eur_per_ha": "980", "field_operations_eur_per_ha": "1380", "irrigation_eur_per_ha": "650", "crop_protection_eur_per_ha": "480", "subsidy_eur_per_ha": "450", "water_need_mm": "520", "soil_factor": "0.82", "soil_note": "Clay-loam can reduce tuber shape unless beds are prepared well.", "weather_note": "Heat and low moisture reduce tuber bulking.", "solution": "Improve ridging, schedule irrigation, and monitor late blight risk."},
+        {"id": "grapes", "label": "Wine grapes", "category": "perennial", "base_yield_tonnes_per_ha": "9.0", "max_factor": "1.11", "market_price_eur_per_tonne": "820", "input_cost_eur_per_ha": "520", "field_operations_eur_per_ha": "860", "irrigation_eur_per_ha": "260", "crop_protection_eur_per_ha": "340", "subsidy_eur_per_ha": "480", "water_need_mm": "390", "soil_factor": "0.92", "soil_note": "Neutral pH and moderate drainage support quality grapes.", "weather_note": "Dry weather lowers disease pressure but can reduce berry size.", "solution": "Use canopy management and targeted irrigation at veraison."},
+        {"id": "almonds", "label": "Almonds", "category": "perennial", "base_yield_tonnes_per_ha": "2.4", "max_factor": "1.18", "market_price_eur_per_tonne": "3900", "input_cost_eur_per_ha": "620", "field_operations_eur_per_ha": "760", "irrigation_eur_per_ha": "420", "crop_protection_eur_per_ha": "310", "subsidy_eur_per_ha": "530", "water_need_mm": "520", "soil_factor": "0.87", "soil_note": "Needs drainage and salinity monitoring.", "weather_note": "Water stress reduces kernel fill.", "solution": "Use regulated deficit irrigation and bee-pollination planning."},
+        {"id": "pistachios", "label": "Pistachios", "category": "perennial", "base_yield_tonnes_per_ha": "1.9", "max_factor": "1.20", "market_price_eur_per_tonne": "6200", "input_cost_eur_per_ha": "690", "field_operations_eur_per_ha": "820", "irrigation_eur_per_ha": "390", "crop_protection_eur_per_ha": "360", "subsidy_eur_per_ha": "540", "water_need_mm": "470", "soil_factor": "0.86", "soil_note": "Moderate fit with careful drainage.", "weather_note": "Dry heat is acceptable if irrigation is reliable.", "solution": "Protect alternate bearing with balanced pruning and irrigation."},
+        {"id": "chickpeas", "label": "Chickpeas", "category": "legume", "base_yield_tonnes_per_ha": "2.2", "max_factor": "1.10", "market_price_eur_per_tonne": "780", "input_cost_eur_per_ha": "150", "field_operations_eur_per_ha": "330", "irrigation_eur_per_ha": "80", "crop_protection_eur_per_ha": "100", "subsidy_eur_per_ha": "410", "water_need_mm": "260", "soil_factor": "0.90", "soil_note": "Good low-input option for neutral soil.", "weather_note": "Drought watch is less damaging than for irrigated crops.", "solution": "Use inoculated seed and avoid excess irrigation during flowering."},
+        {"id": "lentils", "label": "Lentils", "category": "legume", "base_yield_tonnes_per_ha": "1.8", "max_factor": "1.09", "market_price_eur_per_tonne": "950", "input_cost_eur_per_ha": "135", "field_operations_eur_per_ha": "310", "irrigation_eur_per_ha": "70", "crop_protection_eur_per_ha": "90", "subsidy_eur_per_ha": "405", "water_need_mm": "240", "soil_factor": "0.88", "soil_note": "Works where drainage avoids waterlogging.", "weather_note": "Dry conditions are manageable if emergence is protected.", "solution": "Use clean seed and harvest early to limit shattering."},
+        {"id": "beans", "label": "Dry beans", "category": "legume", "base_yield_tonnes_per_ha": "3.0", "max_factor": "1.12", "market_price_eur_per_tonne": "1050", "input_cost_eur_per_ha": "220", "field_operations_eur_per_ha": "420", "irrigation_eur_per_ha": "310", "crop_protection_eur_per_ha": "150", "subsidy_eur_per_ha": "430", "water_need_mm": "430", "soil_factor": "0.84", "soil_note": "Needs better water holding than the declared field currently shows.", "weather_note": "Low moisture raises flower abortion risk.", "solution": "Select only with irrigation and avoid heat during flowering."},
+        {"id": "sunflower", "label": "Sunflower", "category": "oilseed", "base_yield_tonnes_per_ha": "3.1", "max_factor": "1.13", "market_price_eur_per_tonne": "470", "input_cost_eur_per_ha": "210", "field_operations_eur_per_ha": "390", "irrigation_eur_per_ha": "150", "crop_protection_eur_per_ha": "130", "subsidy_eur_per_ha": "360", "water_need_mm": "340", "soil_factor": "0.89", "soil_note": "Deep rooting suits medium-low moisture better than corn.", "weather_note": "Forecast supports sunflower if establishment succeeds.", "solution": "Use conservation tillage and monitor broomrape pressure."},
+        {"id": "rapeseed", "label": "Rapeseed", "category": "oilseed", "base_yield_tonnes_per_ha": "3.3", "max_factor": "1.10", "market_price_eur_per_tonne": "510", "input_cost_eur_per_ha": "250", "field_operations_eur_per_ha": "420", "irrigation_eur_per_ha": "130", "crop_protection_eur_per_ha": "170", "subsidy_eur_per_ha": "365", "water_need_mm": "380", "soil_factor": "0.86", "soil_note": "Moderate suitability; avoid compaction.", "weather_note": "Needs rain during autumn establishment.", "solution": "Plan sowing after rainfall and use soil cover to conserve moisture."},
+        {"id": "alfalfa", "label": "Alfalfa", "category": "forage", "base_yield_tonnes_per_ha": "14.0", "max_factor": "1.15", "market_price_eur_per_tonne": "215", "input_cost_eur_per_ha": "240", "field_operations_eur_per_ha": "520", "irrigation_eur_per_ha": "430", "crop_protection_eur_per_ha": "110", "subsidy_eur_per_ha": "380", "water_need_mm": "650", "soil_factor": "0.85", "soil_note": "Needs reliable water for multiple cuts.", "weather_note": "Drought watch reduces later cuts.", "solution": "Use irrigation budgeting and cut timing based on evapotranspiration."},
+        {"id": "oranges", "label": "Oranges", "category": "perennial", "base_yield_tonnes_per_ha": "32", "max_factor": "1.12", "market_price_eur_per_tonne": "430", "input_cost_eur_per_ha": "760", "field_operations_eur_per_ha": "920", "irrigation_eur_per_ha": "520", "crop_protection_eur_per_ha": "390", "subsidy_eur_per_ha": "500", "water_need_mm": "700", "soil_factor": "0.83", "soil_note": "Needs higher water holding and salinity control.", "weather_note": "Current dry pattern increases fruit drop risk.", "solution": "Use mulching, salinity checks, and steady irrigation."},
+        {"id": "apples", "label": "Apples", "category": "perennial", "base_yield_tonnes_per_ha": "38", "max_factor": "1.12", "market_price_eur_per_tonne": "620", "input_cost_eur_per_ha": "900", "field_operations_eur_per_ha": "1180", "irrigation_eur_per_ha": "560", "crop_protection_eur_per_ha": "620", "subsidy_eur_per_ha": "510", "water_need_mm": "610", "soil_factor": "0.80", "soil_note": "Declared field is not ideal for high-quality apples.", "weather_note": "Heat stress can reduce color and size.", "solution": "Use shade nets and precision irrigation if planted."},
+        {"id": "kiwi", "label": "Kiwi", "category": "perennial", "base_yield_tonnes_per_ha": "30", "max_factor": "1.13", "market_price_eur_per_tonne": "850", "input_cost_eur_per_ha": "1050", "field_operations_eur_per_ha": "1280", "irrigation_eur_per_ha": "720", "crop_protection_eur_per_ha": "520", "subsidy_eur_per_ha": "520", "water_need_mm": "760", "soil_factor": "0.78", "soil_note": "Requires better moisture and wind protection than the demo field shows.", "weather_note": "Dry wind creates high stress.", "solution": "Install windbreaks, fertigation, and moisture sensors before investment."},
+        {"id": "watermelon", "label": "Watermelon", "category": "vegetable", "base_yield_tonnes_per_ha": "48", "max_factor": "1.16", "market_price_eur_per_tonne": "280", "input_cost_eur_per_ha": "620", "field_operations_eur_per_ha": "880", "irrigation_eur_per_ha": "520", "crop_protection_eur_per_ha": "330", "subsidy_eur_per_ha": "390", "water_need_mm": "500", "soil_factor": "0.84", "soil_note": "Raised beds and drainage are important on clay-loam.", "weather_note": "Heat is useful, but water stress reduces fruit size.", "solution": "Use mulch, drip irrigation, and staged harvest forecasts."},
+    ]
 
 
 def _seed_analysis(crop_seasons: list[Any], parcels: list[Any]) -> dict[str, Any]:
@@ -884,6 +982,34 @@ DASHBOARD_HTML = """<!doctype html>
       flex-wrap: wrap;
       margin-top: 12px;
     }
+    .forecast-window {
+      border: 2px solid #c8d8d0;
+      border-radius: 8px;
+      background: #fbfdfc;
+      padding: 14px;
+    }
+    .forecast-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, .45fr));
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+    .forecast-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .mini-metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      padding: 12px;
+      min-height: 82px;
+    }
+    .mini-metric strong { display: block; font-size: 19px; margin-bottom: 4px; }
+    .mini-metric span { color: var(--muted); font-size: 12px; line-height: 1.35; }
     .overlay-actions {
       position: fixed;
       right: 18px;
@@ -934,6 +1060,7 @@ DASHBOARD_HTML = """<!doctype html>
       aside { position: static; height: auto; }
       nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .metrics, .two, .three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .forecast-controls, .forecast-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       header { align-items: flex-start; flex-direction: column; }
     }
     @media (max-width: 680px) {
@@ -942,6 +1069,7 @@ DASHBOARD_HTML = """<!doctype html>
       .content, header { padding-left: 14px; padding-right: 14px; }
       nav { grid-template-columns: 1fr; }
       .metrics, .two, .three { grid-template-columns: 1fr; }
+      .forecast-controls, .forecast-strip { grid-template-columns: 1fr; }
       .quick-actions { width: 100%; }
       .quick-actions button { flex: 1 1 130px; }
       .overlay-actions { right: 12px; bottom: 12px; }
@@ -984,6 +1112,7 @@ DASHBOARD_HTML = """<!doctype html>
           <button data-section="documents">Documents</button>
           <button data-section="land">Land Declaration</button>
           <button data-section="weather">Weather</button>
+          <button data-section="forecast">Crop Forecast</button>
           <button data-section="audit">Audit Analysis</button>
           <button data-section="finance">Financials</button>
           <button data-section="crisis">Crisis Management</button>
@@ -1007,6 +1136,7 @@ DASHBOARD_HTML = """<!doctype html>
           <section class="section" id="documents"></section>
           <section class="section" id="land"></section>
           <section class="section" id="weather"></section>
+          <section class="section" id="forecast"></section>
           <section class="section" id="audit"></section>
           <section class="section" id="finance"></section>
           <section class="section" id="crisis"></section>
@@ -1062,11 +1192,14 @@ DASHBOARD_HTML = """<!doctype html>
 
   <script>
     let state = null;
+    let selectedCropId = null;
+    let cropAnalysisReady = false;
     const titles = {
       overview: ["Overview", "Initialized services, payment outlook, and farmer profile"],
       documents: ["Documents", "Upload and review all required farmer records"],
       land: ["Land Declaration", "Declare parcels from Google Maps, Google Earth, or GeoJSON"],
       weather: ["Weather", "Weather conditions and incident triggers for declared land"],
+      forecast: ["Crop Forecast", "Stored yield database and techno-economic analysis"],
       audit: ["Audit Analysis", "Risk scoring, evidence checks, and audit trail"],
       finance: ["Financials", "Submitted finance records and subsidy payment scenarios"],
       crisis: ["Crisis Management", "Incident response and gross payment forecasts"],
@@ -1155,6 +1288,7 @@ DASHBOARD_HTML = """<!doctype html>
       renderDocuments();
       renderLand();
       renderWeather();
+      renderCropForecast();
       renderAudit();
       renderFinance();
       renderCrisis();
@@ -1172,6 +1306,7 @@ DASHBOARD_HTML = """<!doctype html>
           ${metric("Product net", money(state.financial_analysis.first_sale_deductions.net_product_after_deductions_eur))}
           ${metric("Documents", `${s.documents}/5`)}
           ${metric("Weather", state.weather_conditions.current.risk)}
+          ${metric("Best crop", state.crop_forecast.best_option.label)}
         </div>
         <div class="grid two">
           ${card("Farmer Profile", [
@@ -1248,7 +1383,42 @@ DASHBOARD_HTML = """<!doctype html>
         <div class="card" style="margin-top:14px">
           <h2>Weather Graph</h2>
           <canvas id="weather-chart"></canvas>
+          <div class="quick-actions">
+            <button data-section-jump="forecast">Open Crop Forecast Service</button>
+          </div>
         </div>`;
+      rebindDynamicButtons();
+    }
+
+    function renderCropForecast() {
+      const forecast = state.crop_forecast;
+      const selected = selectedForecast();
+      const result = cropAnalysisReady ? forecastResult(selected) : `<div class="card"><h2>Techno-Economic Analysis</h2><p class="muted">Select a crop type from the stored yield database and press Run Analysis to calculate yearly yield, cost, gross income, subsidy, and margin.</p></div>`;
+      document.getElementById("forecast").innerHTML = `
+        <div class="forecast-window">
+          <div class="forecast-controls">
+            <div>
+              <label for="crop-select">Crop yield type</label>
+              <select id="crop-select">${forecast.options.map((row) => `<option value="${row.id}" ${row.id === selected.id ? "selected" : ""}>${row.label} - ${row.forecast_yield_tonnes_per_ha} t/ha</option>`).join("")}</select>
+            </div>
+            <div>${fact("Declared area", `${forecast.declared_area_ha} ha`)}</div>
+            <div>${fact("Forecast source", forecast.forecast_source)}</div>
+            <div><button id="run-crop-analysis" type="button">Run Analysis</button></div>
+          </div>
+          ${card("Stored DB Yields", cropForecastTable())}
+          <div id="forecast-result" style="margin-top:14px">${result}</div>
+        </div>`;
+      document.getElementById("crop-select").addEventListener("change", (event) => {
+        selectedCropId = event.target.value;
+        cropAnalysisReady = false;
+        renderCropForecast();
+      });
+      document.getElementById("run-crop-analysis").addEventListener("click", () => {
+        selectedCropId = document.getElementById("crop-select").value;
+        cropAnalysisReady = true;
+        renderCropForecast();
+      });
+      requestAnimationFrame(drawCharts);
     }
 
     function renderAudit() {
@@ -1323,6 +1493,59 @@ DASHBOARD_HTML = """<!doctype html>
       return `<div class="card metric"><strong>${value}</strong><span>${label}</span></div>`;
     }
 
+    function miniMetric(label, value, note) {
+      return `<div class="mini-metric"><strong>${value}</strong><span>${label}<br>${note}</span></div>`;
+    }
+
+    function selectedForecast() {
+      const forecast = state.crop_forecast;
+      const current = selectedCropId || document.getElementById("crop-select")?.value;
+      return forecast.options.find((row) => row.id === current) || forecast.options.find((row) => row.id === forecast.declared_crop) || forecast.best_option;
+    }
+
+    function forecastResult(selected) {
+      return `
+        <div class="forecast-strip">
+          ${miniMetric("Year yield", `${selected.forecast_yield_tonnes} t`, `${selected.forecast_yield_tonnes_per_ha} t/ha stored yield`)}
+          ${miniMetric("Max yield", `${selected.max_yield_tonnes} t`, `${selected.max_yield_tonnes_per_ha} t/ha benchmark max`)}
+          ${miniMetric("Gross income", money(selected.gross_income_eur), "product value")}
+          ${miniMetric("Subsidy inquired", money(selected.subsidy_eur), "estimated support")}
+        </div>
+        <div class="grid two">
+          ${card("Techno-Economic Analysis", [
+            fact("Selected crop", selected.label),
+            fact("Category", selected.category),
+            fact("Yield source", selected.yield_source),
+            fact("Declared crop match", selected.declared_crop_match ? "yes" : "alternative scenario"),
+            fact("Soil score", `${selected.soil_score}%`, "money"),
+            fact("Market price", `${money(selected.market_price_eur_per_tonne)}/t`),
+          ].join(""))}
+          ${card("Cost and Gross Product", [
+            fact("Total costs", money(selected.total_cost_eur), "warn-text"),
+            fact("Gross product income", money(selected.gross_income_eur), "money"),
+            fact("Subsidy amount", money(selected.subsidy_eur), "money"),
+            fact("Gross with subsidy", money(selected.gross_with_subsidy_eur), "money"),
+            fact("Net margin", money(selected.net_margin_eur), Number(selected.net_margin_eur) >= 0 ? "money" : "warn-text"),
+          ].join(""))}
+        </div>
+        <div class="grid three" style="margin-top:14px">
+          ${card("Yield Graph", '<canvas id="crop-yield-chart"></canvas>')}
+          ${card("Income Graph", '<canvas id="crop-finance-chart"></canvas>')}
+          ${card("Subsidy Comparison", '<canvas id="crop-subsidy-chart"></canvas>')}
+        </div>
+        <div class="grid two" style="margin-top:14px">
+          ${card("Soil and Field Solution", [
+            fact("Soil analysis", selected.soil_note),
+            fact("Recommended action", selected.solution, "money"),
+          ].join(""))}
+          ${card("Planning Solutions", state.crop_forecast.solutions.map((text) => `<div class="fact"><span>${text}</span><strong class="money">solution</strong></div>`).join(""))}
+        </div>`;
+    }
+
+    function cropForecastTable() {
+      return `<table><thead><tr><th>Crop</th><th>Yield</th><th>Gross</th><th>Subsidy</th><th>Margin</th></tr></thead><tbody>${state.crop_forecast.options.map((row) => `<tr><td>${row.label}<br><span class="muted">${row.category}</span></td><td>${row.forecast_yield_tonnes} t</td><td>${money(row.gross_income_eur)}</td><td>${money(row.subsidy_eur)}</td><td><span class="${Number(row.net_margin_eur) >= 0 ? "money" : "warn-text"}">${money(row.net_margin_eur)}</span></td></tr>`).join("")}</tbody></table>`;
+    }
+
     function servicesTable() {
       return `<table><thead><tr><th>Service</th><th>Status</th><th>Records</th></tr></thead><tbody>${state.services.map((service) => `<tr><td>${service.name}</td><td><span class="status">${service.status}</span></td><td>${service.records}</td></tr>`).join("")}</tbody></table>`;
     }
@@ -1379,6 +1602,7 @@ DASHBOARD_HTML = """<!doctype html>
       if (q.includes("payment") || q.includes("subsidy")) return `Your current disbursable subsidy is ${money(state.subsidy_claim.debt_offset.disbursable_eur)} before any new holds. Crisis gross payment is ${money(state.crisis_management.gross_payment_eur)}.`;
       if (q.includes("crisis") || q.includes("incident")) return "Use Crisis Management to upload incident evidence, request inspection, and compare gross compensation scenarios by damage condition.";
       if (q.includes("weather")) return `Current field risk is ${state.weather_conditions.current.risk}, with ${state.weather_conditions.current.rainfall_7d_mm} mm rainfall in the last 7 days.`;
+      if (q.includes("yield") || q.includes("crop forecast")) return `Open Crop Forecast to compare 20 crop yields. The current best net margin is ${state.crop_forecast.best_option.label} at ${money(state.crop_forecast.best_option.net_margin_eur)}.`;
       if (q.includes("seed")) return "Seed analysis compares declared seed use, expected production, declared tonnes, verified tonnes, and variance for each owned land parcel.";
       if (q.includes("deduction") || q.includes("sold")) return `First sold units currently net ${money(state.financial_analysis.first_sale_deductions.net_product_after_deductions_eur)} after tax and market-fee deductions.`;
       if (q.includes("finance") || q.includes("tax")) return "Financial analysis reconciles first-sale revenue, tax exposure, debt offset, subsidy, compensation, and uploaded invoice records.";
@@ -1391,6 +1615,18 @@ DASHBOARD_HTML = """<!doctype html>
       drawBars("finance-chart", state.financial_analysis.series.map((x) => ({label: x.label, value: Number(x.value)})), ["#286f9e", "#ad7a25", "#2d7650", "#6656a6", "#a6473b"]);
       drawBars("crisis-chart", state.crisis_management.scenarios.map((x) => ({label: x.label, value: Number(x.value)})), ["#ad7a25", "#2d7650", "#286f9e", "#a6473b"]);
       drawBars("weather-chart", state.weather_conditions.forecast.map((x) => ({label: x.day, value: Number(x.rain_mm)})), ["#286f9e", "#2d7650", "#ad7a25", "#6656a6"]);
+      const selected = selectedForecast();
+      drawBars("crop-yield-chart", [
+        {label: "Forecast", value: Number(selected.forecast_yield_tonnes)},
+        {label: "Max", value: Number(selected.max_yield_tonnes)},
+      ], ["#286f9e", "#2d7650"]);
+      drawBars("crop-finance-chart", [
+        {label: "Costs", value: Number(selected.total_cost_eur)},
+        {label: "Income", value: Number(selected.gross_income_eur)},
+        {label: "Subsidy", value: Number(selected.subsidy_eur)},
+        {label: "Margin", value: Math.max(Number(selected.net_margin_eur), 0)},
+      ], ["#ad7a25", "#286f9e", "#2d7650", "#6656a6"]);
+      drawBars("crop-subsidy-chart", state.crop_forecast.options.slice(0, 10).map((row) => ({label: row.label, value: Number(row.subsidy_eur)})), ["#2d7650", "#286f9e", "#ad7a25", "#6656a6"]);
       drawGauge("audit-chart", state.audit_analysis.score);
     }
 
