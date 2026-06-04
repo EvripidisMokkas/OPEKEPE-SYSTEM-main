@@ -4,11 +4,13 @@ This repository now contains a dependency-free MVP application that can be exten
 
 ## Track 1: Farmer identity and access
 
-- Current code: farmer registration with tax identifier, legal name, type, active-farmer status, persistence, and audit events.
+- Current code: clear browser sign-in screen, separate applicant registration screen, tax identifier/password fields, public-integrity/conflict exposure screening, neutral name/surname demo database matching, `off_the_hook` status for clear applicants, `enhanced_audit` status for flagged applicants, farmer registration with tax identifier, legal name, type, active-farmer status, persistence, and audit events.
 - Next production tasks:
   - Connect to government identity providers.
   - Add bank-account verification and beneficial-ownership checks.
   - Add delegated access for accountants, cooperatives, agronomists, and family representatives.
+  - Replace the demo disclosure list with authorized public-integrity and conflict-of-interest datasets.
+  - Add durable applicant accounts, password hashing, session management, and account recovery.
 
 ## Track 2: Land registry and measurement
 
@@ -20,11 +22,12 @@ This repository now contains a dependency-free MVP application that can be exten
 
 ## Track 3: Google Maps and Earth Engine evidence
 
-- Current code: deterministic Google Maps parcel links and normalized Google Earth Engine crop/weather observation adapters.
+- Current code: deterministic Google Maps parcel links, normalized Google Earth Engine crop/weather observation adapters, and crop forecast weather surfaced inside the forecast service rather than as a standalone weather screen.
 - Next production tasks:
   - Add authenticated Google Maps Platform parcel editing UI.
   - Add Earth Engine jobs for NDVI/EVI, crop classification, boundary changes, flood, drought, burn, and frost signals.
   - Store imagery snapshots and model versions in immutable evidence storage.
+  - Replace demo weather values with real weather/disaster feeds linked to crop stage and parcel geofence.
 
 ## Track 4: Production enrolment per hectare
 
@@ -36,11 +39,12 @@ This repository now contains a dependency-free MVP application that can be exten
 
 ## Track 5: First-sale finance and tax records
 
-- Current code: first-sale invoice records, buyer tax identifier, product type, quantity, price, tax rate, myDATA mark, gross/net/tax calculation, and annual ledger aggregation.
+- Current code: first-sale invoice records, buyer tax identifier, product type, quantity, price, tax rate, myDATA mark, gross/net/tax calculation, annual ledger aggregation, stated-yield financial analysis, product market cap, product/by-product rates, by-product revenue estimates, and supporting graphs.
 - Next production tasks:
   - Integrate AADE myDATA invoice ingestion.
   - Add cooperative settlement notes and transport documents.
   - Add product transformation records after the first-sale taxable event.
+  - Replace demo market and by-product rates with versioned market data feeds or approved benchmark tables.
 
 ## Track 6: Subsidy eligibility and debt management
 
@@ -52,7 +56,7 @@ This repository now contains a dependency-free MVP application that can be exten
 
 ## Track 7: Crisis and compensation management
 
-- Current code: geofenced crisis events, weather/satellite evidence requirements, affected-hectare calculation, damage percentage checks, annual caps, and explainable compensation decisions.
+- Current code: geofenced crisis events, weather/satellite evidence requirements, crop-forecast weather display, affected-hectare calculation, damage percentage checks, annual caps, and explainable compensation decisions.
 - Next production tasks:
   - Integrate official disaster declarations and real-time weather feeds.
   - Add insurance and prior-compensation reconciliation.
@@ -60,16 +64,26 @@ This repository now contains a dependency-free MVP application that can be exten
 
 ## Track 8: Audit, transparency, and reporting
 
-- Current code: append-only SQLite audit events and annual farmer ledger view combining production, first sales, taxes, subsidies, debt, net support, and risk flags.
+- Current code: append-only SQLite audit events, applicant screening display in Overview/Audit, standard or close-audit document routing, enhanced-audit review actions, and annual farmer ledger view combining production, first sales, taxes, subsidies, debt, net support, and risk flags.
 - Next production tasks:
   - Move audit events to tamper-resistant/WORM storage.
   - Build public CAP transparency publication filters.
   - Add regional dashboards, risk heatmaps, and auditor search tools.
+  - Add reviewer queues and case-management workflow for enhanced-audit applicants.
 
 ## Track 9: API and operations
 
-- Current code: dependency-free JSON HTTP API with routes for farmers, parcels, crop seasons, remote-sensing evidence, sales, debts, subsidy calculation, crisis events, compensation, annual ledger, audit events, and health checks.
+- Current code: dependency-free JSON HTTP API with routes for health checks, dashboard data, applicant screening, document upload/audit analysis, farmers, parcels, crop seasons, remote-sensing evidence, sales, debts, subsidy calculation, crisis events, compensation, annual ledger, and audit events.
 - Next production tasks:
   - Replace the stdlib HTTP server with a hardened web framework if desired.
   - Add authentication, authorization, rate limiting, validation schemas, and OpenAPI documentation.
   - Deploy with PostgreSQL/PostGIS, object storage, background jobs, and event queues.
+
+## Track 10: Browser portal experience
+
+- Current code: separate login and applicant registration screens, redirect from completed registration back to login, dashboard sections for Overview, Documents, Land Declaration, Crop Forecast, Audit Analysis, Financials, and Crisis Management, weather folded into Crop Forecast, and financial graphs for yield value, market cap, product/by-product rates, and market margin.
+- Next production tasks:
+  - Add persistent user accounts and real authentication.
+  - Add form validation and server-side registration persistence.
+  - Add accessibility review, browser compatibility checks, and mobile usability testing.
+  - Add end-to-end UI tests for registration, login, document upload, and enhanced-audit routing.
