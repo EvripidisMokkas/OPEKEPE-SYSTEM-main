@@ -96,7 +96,7 @@ class AgroLedgerAPITests(unittest.TestCase):
         self.assertEqual(response["summary"]["debts"], 1)
         self.assertEqual(response["summary"]["crisis_events"], 1)
         self.assertEqual(response["subsidy_claim"]["risk_flags"], [])
-        self.assertEqual(response["services"][0]["status"], "initialized")
+        self.assertEqual(response["services"][0]["status"], "αρχικοποιημένη")
         self.assertIn("financial_analysis", response)
         self.assertIn("crisis_management", response)
         self.assertIn("weather_conditions", response)
@@ -134,7 +134,7 @@ class AgroLedgerAPITests(unittest.TestCase):
         status, refreshed = self.api.handle("GET", "/dashboard/data", {}, {})
         self.assertEqual(status, 200)
         self.assertEqual(refreshed["summary"]["documents"], 1)
-        self.assertEqual(refreshed["financial_analysis"]["document_coverage"], "complete")
+        self.assertEqual(refreshed["financial_analysis"]["document_coverage"], "πλήρης")
 
     def test_applicant_screening_flags_declared_public_integrity_exposure(self) -> None:
         status, response = self.api.handle(
