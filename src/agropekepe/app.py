@@ -520,6 +520,7 @@ def _crop_forecast_service(crop_seasons: list[Any], parcels: list[Any]) -> dict[
     if declared_area <= 0:
         declared_area = Decimal("1")
     declared_crop = crop_seasons[0].production_type if crop_seasons else "olives"
+    weather_forecast = _weather_conditions()
     soil_profile = {
         "texture": "clay loam",
         "organic_matter_percent": "2.4",
@@ -536,14 +537,25 @@ def _crop_forecast_service(crop_seasons: list[Any], parcels: list[Any]) -> dict[
         forecast_tonnes = forecast_yield_ha * declared_area
         max_tonnes = max_yield_ha * declared_area
         price = Decimal(str(crop["market_price_eur_per_tonne"]))
+        byproduct_rates = _industry_byproduct_rates(crop["id"])
+        byproduct_value = sum(
+            (
+                forecast_tonnes
+                * Decimal(str(rate["yield_ratio"]))
+                * Decimal(str(rate["market_price_eur_per_tonne"]))
+                for rate in byproduct_rates
+            ),
+            Decimal("0"),
+        )
         input_cost = Decimal(str(crop["input_cost_eur_per_ha"])) * declared_area
         field_cost = Decimal(str(crop["field_operations_eur_per_ha"])) * declared_area
         irrigation_cost = Decimal(str(crop["irrigation_eur_per_ha"])) * declared_area
         protection_cost = Decimal(str(crop["crop_protection_eur_per_ha"])) * declared_area
         total_cost = input_cost + field_cost + irrigation_cost + protection_cost
         gross_income = forecast_tonnes * price
+        market_cap = max_tonnes * price
         subsidy = Decimal(str(crop["subsidy_eur_per_ha"])) * declared_area
-        gross_with_subsidy = gross_income + subsidy
+        gross_with_subsidy = gross_income + byproduct_value + subsidy
         net_margin = gross_with_subsidy - total_cost
         options.append(
             {
@@ -558,13 +570,22 @@ def _crop_forecast_service(crop_seasons: list[Any], parcels: list[Any]) -> dict[
                 "max_yield_tonnes": str(max_tonnes.quantize(Decimal("0.01"))),
                 "market_price_eur_per_tonne": str(price),
                 "gross_income_eur": str(gross_income.quantize(Decimal("0.01"))),
+                "market_cap_eur": str(market_cap.quantize(Decimal("0.01"))),
+                "byproduct_income_eur": str(byproduct_value.quantize(Decimal("0.01"))),
                 "subsidy_eur": str(subsidy.quantize(Decimal("0.01"))),
                 "gross_with_subsidy_eur": str(gross_with_subsidy.quantize(Decimal("0.01"))),
                 "total_cost_eur": str(total_cost.quantize(Decimal("0.01"))),
                 "net_margin_eur": str(net_margin.quantize(Decimal("0.01"))),
                 "soil_score": str((soil_factor * Decimal("100")).quantize(Decimal("1"))),
                 "yield_source": "stored database benchmark",
+                "industry_rates": {
+                    "primary_product": crop["label"],
+                    "primary_product_rate_eur_per_tonne": str(price),
+                    "market_cap_eur": str(market_cap.quantize(Decimal("0.01"))),
+                    "byproducts": byproduct_rates,
+                },
                 "soil_note": crop["soil_note"],
+                "weather_note": crop["weather_note"],
                 "solution": crop["solution"],
             }
         )
@@ -574,6 +595,7 @@ def _crop_forecast_service(crop_seasons: list[Any], parcels: list[Any]) -> dict[
         "declared_area_ha": str(declared_area),
         "declared_crop": declared_crop,
         "forecast_source": "stored yield database",
+        "weather_forecast": weather_forecast,
         "soil_profile": soil_profile,
         "options": options,
         "best_option": best,
@@ -609,6 +631,92 @@ def _crop_forecast_catalog() -> list[dict[str, Any]]:
         {"id": "kiwi", "label": "Kiwi", "category": "perennial", "base_yield_tonnes_per_ha": "30", "max_factor": "1.13", "market_price_eur_per_tonne": "850", "input_cost_eur_per_ha": "1050", "field_operations_eur_per_ha": "1280", "irrigation_eur_per_ha": "720", "crop_protection_eur_per_ha": "520", "subsidy_eur_per_ha": "520", "water_need_mm": "760", "soil_factor": "0.78", "soil_note": "Requires better moisture and wind protection than the demo field shows.", "weather_note": "Dry wind creates high stress.", "solution": "Install windbreaks, fertigation, and moisture sensors before investment."},
         {"id": "watermelon", "label": "Watermelon", "category": "vegetable", "base_yield_tonnes_per_ha": "48", "max_factor": "1.16", "market_price_eur_per_tonne": "280", "input_cost_eur_per_ha": "620", "field_operations_eur_per_ha": "880", "irrigation_eur_per_ha": "520", "crop_protection_eur_per_ha": "330", "subsidy_eur_per_ha": "390", "water_need_mm": "500", "soil_factor": "0.84", "soil_note": "Raised beds and drainage are important on clay-loam.", "weather_note": "Heat is useful, but water stress reduces fruit size.", "solution": "Use mulch, drip irrigation, and staged harvest forecasts."},
     ]
+
+
+def _industry_byproduct_rates(crop_id: str) -> list[dict[str, str]]:
+    rates = {
+        "olives": [
+            {"name": "olive pomace", "yield_ratio": "0.35", "market_price_eur_per_tonne": "85"},
+            {"name": "olive leaves biomass", "yield_ratio": "0.08", "market_price_eur_per_tonne": "55"},
+        ],
+        "durum_wheat": [
+            {"name": "straw", "yield_ratio": "0.80", "market_price_eur_per_tonne": "95"},
+            {"name": "bran for milling", "yield_ratio": "0.12", "market_price_eur_per_tonne": "185"},
+        ],
+        "barley": [
+            {"name": "straw", "yield_ratio": "0.75", "market_price_eur_per_tonne": "90"},
+            {"name": "feed screenings", "yield_ratio": "0.05", "market_price_eur_per_tonne": "150"},
+        ],
+        "corn": [
+            {"name": "stover", "yield_ratio": "0.90", "market_price_eur_per_tonne": "65"},
+            {"name": "cobs", "yield_ratio": "0.18", "market_price_eur_per_tonne": "70"},
+        ],
+        "cotton": [
+            {"name": "cottonseed", "yield_ratio": "0.55", "market_price_eur_per_tonne": "310"},
+            {"name": "stalk biomass", "yield_ratio": "0.70", "market_price_eur_per_tonne": "45"},
+        ],
+        "tomatoes": [
+            {"name": "tomato pomace", "yield_ratio": "0.06", "market_price_eur_per_tonne": "42"},
+            {"name": "seed extract material", "yield_ratio": "0.01", "market_price_eur_per_tonne": "260"},
+        ],
+        "potatoes": [
+            {"name": "processing peel", "yield_ratio": "0.08", "market_price_eur_per_tonne": "38"},
+            {"name": "cull potatoes feed", "yield_ratio": "0.07", "market_price_eur_per_tonne": "70"},
+        ],
+        "grapes": [
+            {"name": "grape pomace", "yield_ratio": "0.20", "market_price_eur_per_tonne": "70"},
+            {"name": "grape seed", "yield_ratio": "0.04", "market_price_eur_per_tonne": "220"},
+        ],
+        "almonds": [
+            {"name": "almond hulls", "yield_ratio": "1.20", "market_price_eur_per_tonne": "135"},
+            {"name": "almond shells", "yield_ratio": "0.45", "market_price_eur_per_tonne": "75"},
+        ],
+        "pistachios": [
+            {"name": "pistachio hulls", "yield_ratio": "0.90", "market_price_eur_per_tonne": "80"},
+            {"name": "pistachio shells", "yield_ratio": "0.35", "market_price_eur_per_tonne": "95"},
+        ],
+        "chickpeas": [
+            {"name": "haulm feed", "yield_ratio": "0.70", "market_price_eur_per_tonne": "85"},
+            {"name": "split/broken pulses", "yield_ratio": "0.04", "market_price_eur_per_tonne": "420"},
+        ],
+        "lentils": [
+            {"name": "straw feed", "yield_ratio": "0.65", "market_price_eur_per_tonne": "80"},
+            {"name": "split/broken pulses", "yield_ratio": "0.04", "market_price_eur_per_tonne": "500"},
+        ],
+        "beans": [
+            {"name": "haulm feed", "yield_ratio": "0.60", "market_price_eur_per_tonne": "75"},
+            {"name": "split/broken beans", "yield_ratio": "0.05", "market_price_eur_per_tonne": "520"},
+        ],
+        "sunflower": [
+            {"name": "sunflower meal", "yield_ratio": "0.58", "market_price_eur_per_tonne": "255"},
+            {"name": "hulls", "yield_ratio": "0.18", "market_price_eur_per_tonne": "70"},
+        ],
+        "rapeseed": [
+            {"name": "rapeseed meal", "yield_ratio": "0.60", "market_price_eur_per_tonne": "285"},
+            {"name": "straw biomass", "yield_ratio": "0.70", "market_price_eur_per_tonne": "55"},
+        ],
+        "alfalfa": [
+            {"name": "leaf meal", "yield_ratio": "0.18", "market_price_eur_per_tonne": "240"},
+            {"name": "stem bedding", "yield_ratio": "0.20", "market_price_eur_per_tonne": "65"},
+        ],
+        "oranges": [
+            {"name": "citrus peel", "yield_ratio": "0.45", "market_price_eur_per_tonne": "55"},
+            {"name": "essential oil fraction", "yield_ratio": "0.004", "market_price_eur_per_tonne": "1800"},
+        ],
+        "apples": [
+            {"name": "apple pomace", "yield_ratio": "0.25", "market_price_eur_per_tonne": "52"},
+            {"name": "juice grade culls", "yield_ratio": "0.08", "market_price_eur_per_tonne": "110"},
+        ],
+        "kiwi": [
+            {"name": "juice grade culls", "yield_ratio": "0.08", "market_price_eur_per_tonne": "130"},
+            {"name": "kiwi pomace", "yield_ratio": "0.12", "market_price_eur_per_tonne": "50"},
+        ],
+        "watermelon": [
+            {"name": "juice grade fruit", "yield_ratio": "0.10", "market_price_eur_per_tonne": "75"},
+            {"name": "rind biomass", "yield_ratio": "0.18", "market_price_eur_per_tonne": "28"},
+        ],
+    }
+    return rates.get(crop_id, [{"name": "field residue", "yield_ratio": "0.20", "market_price_eur_per_tonne": "40"}])
 
 
 def _seed_analysis(crop_seasons: list[Any], parcels: list[Any]) -> dict[str, Any]:
@@ -1111,7 +1219,6 @@ DASHBOARD_HTML = """<!doctype html>
           <button class="active" data-section="overview">Overview</button>
           <button data-section="documents">Documents</button>
           <button data-section="land">Land Declaration</button>
-          <button data-section="weather">Weather</button>
           <button data-section="forecast">Crop Forecast</button>
           <button data-section="audit">Audit Analysis</button>
           <button data-section="finance">Financials</button>
@@ -1135,7 +1242,6 @@ DASHBOARD_HTML = """<!doctype html>
           <section class="section active" id="overview"></section>
           <section class="section" id="documents"></section>
           <section class="section" id="land"></section>
-          <section class="section" id="weather"></section>
           <section class="section" id="forecast"></section>
           <section class="section" id="audit"></section>
           <section class="section" id="finance"></section>
@@ -1198,7 +1304,6 @@ DASHBOARD_HTML = """<!doctype html>
       overview: ["Overview", "Initialized services, payment outlook, and farmer profile"],
       documents: ["Documents", "Upload and review all required farmer records"],
       land: ["Land Declaration", "Declare parcels from Google Maps, Google Earth, or GeoJSON"],
-      weather: ["Weather", "Weather conditions and incident triggers for declared land"],
       forecast: ["Crop Forecast", "Stored yield database and techno-economic analysis"],
       audit: ["Audit Analysis", "Risk scoring, evidence checks, and audit trail"],
       finance: ["Financials", "Submitted finance records and subsidy payment scenarios"],
@@ -1287,7 +1392,6 @@ DASHBOARD_HTML = """<!doctype html>
       renderOverview();
       renderDocuments();
       renderLand();
-      renderWeather();
       renderCropForecast();
       renderAudit();
       renderFinance();
@@ -1305,7 +1409,7 @@ DASHBOARD_HTML = """<!doctype html>
           ${metric("Net after offsets", money(state.financial_analysis.net_after_offsets_eur))}
           ${metric("Product net", money(state.financial_analysis.first_sale_deductions.net_product_after_deductions_eur))}
           ${metric("Documents", `${s.documents}/5`)}
-          ${metric("Weather", state.weather_conditions.current.risk)}
+          ${metric("Forecast risk", state.crop_forecast.weather_forecast.current.risk)}
           ${metric("Best crop", state.crop_forecast.best_option.label)}
         </div>
         <div class="grid two">
@@ -1365,31 +1469,6 @@ DASHBOARD_HTML = """<!doctype html>
         </div>`;
     }
 
-    function renderWeather() {
-      const weather = state.weather_conditions;
-      document.getElementById("weather").innerHTML = `
-        <div class="grid two">
-          ${card("Current Conditions", [
-            fact("Station", weather.station),
-            fact("Temperature", `${weather.current.temperature_c} C`),
-            fact("Humidity", `${weather.current.humidity_percent}%`),
-            fact("Wind", `${weather.current.wind_kph} kph`),
-            fact("7-day rainfall", `${weather.current.rainfall_7d_mm} mm`),
-            fact("Soil moisture", weather.current.soil_moisture, "warn-text"),
-            fact("Risk", weather.current.risk, "warn-text"),
-          ].join(""))}
-          ${card("Weather Forecast", `<table><thead><tr><th>Day</th><th>Condition</th><th>Rain</th><th>Risk</th></tr></thead><tbody>${weather.forecast.map((row) => `<tr><td>${row.day}</td><td>${row.condition}</td><td>${row.rain_mm} mm</td><td><span class="tag ${row.risk === "high" ? "warn" : "blue"}">${row.risk}</span></td></tr>`).join("")}</tbody></table>`)}
-        </div>
-        <div class="card" style="margin-top:14px">
-          <h2>Weather Graph</h2>
-          <canvas id="weather-chart"></canvas>
-          <div class="quick-actions">
-            <button data-section-jump="forecast">Open Crop Forecast Service</button>
-          </div>
-        </div>`;
-      rebindDynamicButtons();
-    }
-
     function renderCropForecast() {
       const forecast = state.crop_forecast;
       const selected = selectedForecast();
@@ -1405,7 +1484,14 @@ DASHBOARD_HTML = """<!doctype html>
             <div>${fact("Forecast source", forecast.forecast_source)}</div>
             <div><button id="run-crop-analysis" type="button">Run Analysis</button></div>
           </div>
-          ${card("Stored DB Yields", cropForecastTable())}
+          <div class="grid two">
+            ${card("Stored DB Yields", cropForecastTable())}
+            ${card("Forecast Service Weather", forecastWeather())}
+          </div>
+          <div class="grid two" style="margin-top:14px">
+            ${card("Weather Rain Graph", '<canvas id="forecast-weather-chart"></canvas>')}
+            ${card("Market Cap Graph", '<canvas id="market-cap-chart"></canvas>')}
+          </div>
           <div id="forecast-result" style="margin-top:14px">${result}</div>
         </div>`;
       document.getElementById("crop-select").addEventListener("change", (event) => {
@@ -1434,7 +1520,19 @@ DASHBOARD_HTML = """<!doctype html>
     }
 
     function renderFinance() {
+      const selected = selectedForecast();
       document.getElementById("finance").innerHTML = `
+        <div class="forecast-window" style="margin-bottom:14px">
+          <div class="forecast-controls">
+            <div>
+              <label for="finance-crop-select">Stated yield choice</label>
+              <select id="finance-crop-select">${state.crop_forecast.options.map((row) => `<option value="${row.id}" ${row.id === selected.id ? "selected" : ""}>${row.label} - ${row.forecast_yield_tonnes_per_ha} t/ha</option>`).join("")}</select>
+            </div>
+            <div>${fact("Forecast yield", `${selected.forecast_yield_tonnes} t`)}</div>
+            <div>${fact("Market cap", money(selected.market_cap_eur), "money")}</div>
+            <div>${fact("By-product value", money(selected.byproduct_income_eur), "money")}</div>
+          </div>
+        </div>
         <div class="grid two">
           ${card("Financial Analysis", [
             fact("Gross public support", money(state.financial_analysis.gross_public_support_eur), "money"),
@@ -1456,8 +1554,23 @@ DASHBOARD_HTML = """<!doctype html>
             fact("Market fee", money(state.financial_analysis.first_sale_deductions.market_fee_eur), "warn-text"),
             fact("Net product value", money(state.financial_analysis.first_sale_deductions.net_product_after_deductions_eur), "money"),
           ].join(""))}
+          ${card("Stated Yield Industry Analysis", industryAnalysis(selected))}
+        </div>
+        <div class="grid three" style="margin-top:14px">
+          ${card("Yield Value Graph", '<canvas id="finance-yield-chart"></canvas>')}
+          ${card("Product and By-product Rates", '<canvas id="industry-rates-chart"></canvas>')}
+          ${card("Market Cap vs Margin", '<canvas id="finance-market-chart"></canvas>')}
+        </div>
+        <div class="grid two" style="margin-top:14px">
+          ${card("By-product Revenue Table", byproductTable(selected))}
           ${card("Seed Production Analysis", seedTable())}
         </div>`;
+      document.getElementById("finance-crop-select").addEventListener("change", (event) => {
+        selectedCropId = event.target.value;
+        cropAnalysisReady = true;
+        renderFinance();
+        requestAnimationFrame(drawCharts);
+      });
     }
 
     function renderCrisis() {
@@ -1509,7 +1622,7 @@ DASHBOARD_HTML = """<!doctype html>
           ${miniMetric("Year yield", `${selected.forecast_yield_tonnes} t`, `${selected.forecast_yield_tonnes_per_ha} t/ha stored yield`)}
           ${miniMetric("Max yield", `${selected.max_yield_tonnes} t`, `${selected.max_yield_tonnes_per_ha} t/ha benchmark max`)}
           ${miniMetric("Gross income", money(selected.gross_income_eur), "product value")}
-          ${miniMetric("Subsidy inquired", money(selected.subsidy_eur), "estimated support")}
+          ${miniMetric("Market cap", money(selected.market_cap_eur), "max yield at product rate")}
         </div>
         <div class="grid two">
           ${card("Techno-Economic Analysis", [
@@ -1519,10 +1632,12 @@ DASHBOARD_HTML = """<!doctype html>
             fact("Declared crop match", selected.declared_crop_match ? "yes" : "alternative scenario"),
             fact("Soil score", `${selected.soil_score}%`, "money"),
             fact("Market price", `${money(selected.market_price_eur_per_tonne)}/t`),
+            fact("By-product value", money(selected.byproduct_income_eur), "money"),
           ].join(""))}
           ${card("Cost and Gross Product", [
             fact("Total costs", money(selected.total_cost_eur), "warn-text"),
             fact("Gross product income", money(selected.gross_income_eur), "money"),
+            fact("Market cap", money(selected.market_cap_eur), "money"),
             fact("Subsidy amount", money(selected.subsidy_eur), "money"),
             fact("Gross with subsidy", money(selected.gross_with_subsidy_eur), "money"),
             fact("Net margin", money(selected.net_margin_eur), Number(selected.net_margin_eur) >= 0 ? "money" : "warn-text"),
@@ -1536,10 +1651,45 @@ DASHBOARD_HTML = """<!doctype html>
         <div class="grid two" style="margin-top:14px">
           ${card("Soil and Field Solution", [
             fact("Soil analysis", selected.soil_note),
+            fact("Weather analysis", selected.weather_note, "warn-text"),
             fact("Recommended action", selected.solution, "money"),
           ].join(""))}
           ${card("Planning Solutions", state.crop_forecast.solutions.map((text) => `<div class="fact"><span>${text}</span><strong class="money">solution</strong></div>`).join(""))}
         </div>`;
+    }
+
+    function forecastWeather() {
+      const weather = state.crop_forecast.weather_forecast;
+      return `
+        ${[
+          fact("Station", weather.station),
+          fact("Temperature", `${weather.current.temperature_c} C`),
+          fact("Humidity", `${weather.current.humidity_percent}%`),
+          fact("Wind", `${weather.current.wind_kph} kph`),
+          fact("7-day rainfall", `${weather.current.rainfall_7d_mm} mm`),
+          fact("Soil moisture", weather.current.soil_moisture, "warn-text"),
+          fact("Risk", weather.current.risk, "warn-text"),
+        ].join("")}
+        <table style="margin-top:12px"><thead><tr><th>Day</th><th>Condition</th><th>Rain</th><th>Risk</th></tr></thead><tbody>${weather.forecast.map((row) => `<tr><td>${row.day}</td><td>${row.condition}</td><td>${row.rain_mm} mm</td><td><span class="tag ${row.risk === "high" ? "warn" : "blue"}">${row.risk}</span></td></tr>`).join("")}</tbody></table>`;
+    }
+
+    function industryAnalysis(selected) {
+      return [
+        fact("Stated yield choice", selected.label),
+        fact("Forecast yield", `${selected.forecast_yield_tonnes} t (${selected.forecast_yield_tonnes_per_ha} t/ha)`, "money"),
+        fact("Maximum yield benchmark", `${selected.max_yield_tonnes} t (${selected.max_yield_tonnes_per_ha} t/ha)`),
+        fact("Primary product rate", `${money(selected.industry_rates.primary_product_rate_eur_per_tonne)}/t`),
+        fact("Gross market cap", money(selected.market_cap_eur), "money"),
+        fact("By-product value", money(selected.byproduct_income_eur), "money"),
+        fact("Net margin", money(selected.net_margin_eur), Number(selected.net_margin_eur) >= 0 ? "money" : "warn-text"),
+      ].join("");
+    }
+
+    function byproductTable(selected) {
+      return `<table><thead><tr><th>By-product</th><th>Yield ratio</th><th>Rate</th><th>Estimated value</th></tr></thead><tbody>${selected.industry_rates.byproducts.map((row) => {
+        const value = Number(selected.forecast_yield_tonnes) * Number(row.yield_ratio) * Number(row.market_price_eur_per_tonne);
+        return `<tr><td>${row.name}</td><td>${Number(row.yield_ratio).toFixed(2)} t/t</td><td>${money(row.market_price_eur_per_tonne)}/t</td><td><span class="money">${money(value)}</span></td></tr>`;
+      }).join("")}</tbody></table>`;
     }
 
     function cropForecastTable() {
@@ -1614,7 +1764,8 @@ DASHBOARD_HTML = """<!doctype html>
       drawBars("payment-chart", state.financial_analysis.payment_scenarios.map((x) => ({label: x.label, value: Number(x.net)})), ["#2d7650", "#286f9e", "#a6473b"]);
       drawBars("finance-chart", state.financial_analysis.series.map((x) => ({label: x.label, value: Number(x.value)})), ["#286f9e", "#ad7a25", "#2d7650", "#6656a6", "#a6473b"]);
       drawBars("crisis-chart", state.crisis_management.scenarios.map((x) => ({label: x.label, value: Number(x.value)})), ["#ad7a25", "#2d7650", "#286f9e", "#a6473b"]);
-      drawBars("weather-chart", state.weather_conditions.forecast.map((x) => ({label: x.day, value: Number(x.rain_mm)})), ["#286f9e", "#2d7650", "#ad7a25", "#6656a6"]);
+      drawBars("forecast-weather-chart", state.crop_forecast.weather_forecast.forecast.map((x) => ({label: x.day, value: Number(x.rain_mm)})), ["#286f9e", "#2d7650", "#ad7a25", "#6656a6"]);
+      drawBars("market-cap-chart", state.crop_forecast.options.slice(0, 10).map((row) => ({label: row.label, value: Number(row.market_cap_eur)})), ["#286f9e", "#2d7650", "#ad7a25", "#6656a6"]);
       const selected = selectedForecast();
       drawBars("crop-yield-chart", [
         {label: "Forecast", value: Number(selected.forecast_yield_tonnes)},
@@ -1627,6 +1778,20 @@ DASHBOARD_HTML = """<!doctype html>
         {label: "Margin", value: Math.max(Number(selected.net_margin_eur), 0)},
       ], ["#ad7a25", "#286f9e", "#2d7650", "#6656a6"]);
       drawBars("crop-subsidy-chart", state.crop_forecast.options.slice(0, 10).map((row) => ({label: row.label, value: Number(row.subsidy_eur)})), ["#2d7650", "#286f9e", "#ad7a25", "#6656a6"]);
+      drawBars("finance-yield-chart", [
+        {label: "Product", value: Number(selected.gross_income_eur)},
+        {label: "By-products", value: Number(selected.byproduct_income_eur)},
+        {label: "Subsidy", value: Number(selected.subsidy_eur)},
+      ], ["#286f9e", "#ad7a25", "#2d7650"]);
+      drawBars("industry-rates-chart", [
+        {label: "Product", value: Number(selected.market_price_eur_per_tonne)},
+        ...selected.industry_rates.byproducts.map((row) => ({label: row.name, value: Number(row.market_price_eur_per_tonne)})),
+      ], ["#286f9e", "#ad7a25", "#2d7650", "#6656a6"]);
+      drawBars("finance-market-chart", [
+        {label: "Market cap", value: Number(selected.market_cap_eur)},
+        {label: "Gross", value: Number(selected.gross_income_eur)},
+        {label: "Net margin", value: Math.max(Number(selected.net_margin_eur), 0)},
+      ], ["#6656a6", "#286f9e", "#2d7650"]);
       drawGauge("audit-chart", state.audit_analysis.score);
     }
 
