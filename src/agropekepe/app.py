@@ -966,7 +966,7 @@ DASHBOARD_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Πύλη Αγροτικών Ενισχύσεων AgroLedger</title>
+  <title>Πύλη Αγροτικών Ενισχύσεων OPEKEPE</title>
   <style>
     :root {
       color-scheme: light;
@@ -1338,7 +1338,7 @@ DASHBOARD_HTML = """<!doctype html>
   <section class="login" id="login">
     <div class="login-panel">
       <div class="login-copy">
-        <h1>Πύλη Αγροτικών Ενισχύσεων AgroLedger</h1>
+        <h1>Πύλη Αγροτικών Ενισχύσεων OPEKEPE</h1>
         <p>Ασφαλής τοπική πύλη για δηλώσεις γης, υποβολή δικαιολογητικών, ελεγκτική ανάλυση, οικονομικό έλεγχο, προβλέψεις πληρωμών, διαχείριση κρίσεων και καθοδήγηση.</p>
         <div class="quick-actions">
           <span class="tag">Υπηρεσίες έτοιμες</span>
@@ -1417,7 +1417,7 @@ DASHBOARD_HTML = """<!doctype html>
   <section class="app" id="app">
     <div class="shell">
       <aside>
-        <div class="brand">AgroLedger</div>
+        <div class="brand">OPEKEPE</div>
         <nav id="nav">
           <button class="active" data-section="overview">Επισκόπηση</button>
           <button data-section="documents">Δικαιολογητικά</button>
@@ -1507,7 +1507,7 @@ DASHBOARD_HTML = """<!doctype html>
     let applicantProfile = null;
     let currentLanguage = localStorage.getItem("agroledger-language") || "el";
     const greekToEnglish = {
-      "Πύλη Αγροτικών Ενισχύσεων AgroLedger": "AgroLedger Agricultural Support Portal",
+      "Πύλη Αγροτικών Ενισχύσεων OPEKEPE": "OPEKEPE Agricultural Support Portal",
       "Ασφαλής τοπική πύλη για δηλώσεις γης, υποβολή δικαιολογητικών, ελεγκτική ανάλυση, οικονομικό έλεγχο, προβλέψεις πληρωμών, διαχείριση κρίσεων και καθοδήγηση.": "Secure local portal for land declarations, document submission, audit analysis, financial review, payment forecasts, crisis management, and guidance.",
       "Υπηρεσίες έτοιμες": "Services ready",
       "Demo ταυτότητα ενεργή": "Demo identity active",
@@ -2296,7 +2296,7 @@ DASHBOARD_HTML = """<!doctype html>
       currentLanguage = language;
       localStorage.setItem("agroledger-language", language);
       document.documentElement.lang = language;
-      document.title = language === "el" ? "Πύλη Αγροτικών Ενισχύσεων AgroLedger" : "AgroLedger Agricultural Support Portal";
+      document.title = language === "el" ? "Πύλη Αγροτικών Ενισχύσεων OPEKEPE" : "OPEKEPE Agricultural Support Portal";
       document.getElementById("language-el").classList.toggle("active", language === "el");
       document.getElementById("language-en").classList.toggle("active", language === "en");
       applyLanguage();
