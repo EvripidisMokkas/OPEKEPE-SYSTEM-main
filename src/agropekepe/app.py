@@ -1356,6 +1356,14 @@ DASHBOARD_HTML = """<!doctype html>
           <label for="password">Κωδικός πρόσβασης</label>
           <input id="password" type="password" value="demo" autocomplete="current-password">
         </div>
+        <div class="field">
+          <label for="role-select">Ρόλος λογαριασμού</label>
+          <select id="role-select">
+            <option value="applicant">Applicant</option>
+            <option value="admin">Admin</option>
+            <option value="auditor">Auditor</option>
+          </select>
+        </div>
         <button type="submit">Είσοδος στο σύστημα</button>
         <div class="quick-actions">
           <button class="secondary" id="show-register" type="button">Εγγραφή νέου αιτούντος</button>
@@ -1426,6 +1434,7 @@ DASHBOARD_HTML = """<!doctype html>
           <button data-section="audit">Ελεγκτική Ανάλυση</button>
           <button data-section="finance">Οικονομικά</button>
           <button data-section="crisis">Διαχείριση Κρίσεων</button>
+          <button data-section="reports">Reports</button>
         </nav>
       </aside>
       <main>
@@ -1449,6 +1458,7 @@ DASHBOARD_HTML = """<!doctype html>
           <section class="section" id="audit"></section>
           <section class="section" id="finance"></section>
           <section class="section" id="crisis"></section>
+          <section class="section" id="reports"></section>
         </div>
       </main>
     </div>
@@ -1505,6 +1515,7 @@ DASHBOARD_HTML = """<!doctype html>
     let cropAnalysisReady = false;
     let applicantScreening = null;
     let applicantProfile = null;
+    let currentRole = "applicant";
     let currentLanguage = localStorage.getItem("agroledger-language") || "el";
     const greekToEnglish = {
       "Πύλη Αγροτικών Ενισχύσεων OPEKEPE": "OPEKEPE Agricultural Support Portal",
@@ -1658,6 +1669,27 @@ DASHBOARD_HTML = """<!doctype html>
       audit: ["Ελεγκτική Ανάλυση", "Βαθμολόγηση κινδύνου, έλεγχοι τεκμηρίων και ιστορικό ελέγχου"],
       finance: ["Οικονομικά", "Οικονομικά στοιχεία και σενάρια πληρωμής ενίσχυσης"],
       crisis: ["Διαχείριση Κρίσεων", "Αντιμετώπιση συμβάντων και προβλέψεις ακαθάριστης πληρωμής"],
+      reports: ["Reports", "Role-based audit, applicant, payment, and crisis reporting"],
+    };
+    const roleDefinitions = {
+      applicant: {
+        label: "Applicant",
+        note: "Can view own application, submit evidence, declare land, forecast crops, review crisis coverage, and inspect techno-economic subsidy exposure.",
+        sections: ["overview", "documents", "land", "forecast", "finance", "crisis"],
+        privileges: ["own_profile", "submit_documents", "declare_land", "view_forecast", "crisis_evidence", "techno_economic_analysis"],
+      },
+      admin: {
+        label: "Admin",
+        note: "Can view and manage every area, role, applicant, audit queue, and report.",
+        sections: ["overview", "documents", "land", "forecast", "audit", "finance", "crisis", "reports"],
+        privileges: ["all_applicants", "role_management", "audit_override", "financial_review", "reports"],
+      },
+      auditor: {
+        label: "Auditor",
+        note: "Can inspect related applicant records, perform audits, review finance/crisis evidence, and produce reports.",
+        sections: ["overview", "documents", "audit", "finance", "crisis", "reports"],
+        privileges: ["applicant_review", "document_audit", "risk_scoring", "report_export"],
+      },
     };
     const money = (value) => `${Number(value || 0).toLocaleString(currentLanguage === "el" ? "el-GR" : "en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})} EUR`;
     const fact = (label, value, cls = "") => `<div class="fact"><span class="muted">${label}</span><strong class="${cls}">${value}</strong></div>`;
@@ -1703,6 +1735,7 @@ DASHBOARD_HTML = """<!doctype html>
 
     document.getElementById("login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      currentRole = document.getElementById("role-select").value;
       if (!applicantScreening) {
         applicantProfile = {
           first_name: "Demo",
@@ -1783,9 +1816,11 @@ DASHBOARD_HTML = """<!doctype html>
       if (!response.ok) throw new Error(`Dashboard data failed: ${response.status}`);
       state = await response.json();
       renderAll();
+      configureRoleAccess();
     }
 
     function showSection(id) {
+      if (!canAccess(id)) id = firstAllowedSection();
       document.querySelectorAll(".section").forEach((section) => section.classList.toggle("active", section.id === id));
       document.querySelectorAll("nav button").forEach((button) => button.classList.toggle("active", button.dataset.section === id));
       document.getElementById("page-title").textContent = titles[id][0];
@@ -1802,10 +1837,51 @@ DASHBOARD_HTML = """<!doctype html>
       renderAudit();
       renderFinance();
       renderCrisis();
+      renderReports();
       renderAssistant();
-      document.getElementById("page-subtitle").textContent = `${state.farmer.legal_name} - όλες οι υπηρεσίες έχουν αρχικοποιηθεί`;
+      configureRoleAccess();
+      document.getElementById("page-subtitle").textContent = `${state.farmer.legal_name} - ${roleDefinitions[currentRole].label} privileges active`;
       applyLanguage();
       requestAnimationFrame(drawCharts);
+    }
+
+    function canAccess(sectionId) {
+      return roleDefinitions[currentRole].sections.includes(sectionId);
+    }
+
+    function firstAllowedSection() {
+      return roleDefinitions[currentRole].sections[0];
+    }
+
+    function configureRoleAccess() {
+      document.querySelectorAll("nav button[data-section]").forEach((button) => {
+        button.hidden = !canAccess(button.dataset.section);
+      });
+      document.querySelectorAll("[data-section-jump]").forEach((button) => {
+        button.hidden = !canAccess(button.dataset.sectionJump);
+      });
+      document.querySelectorAll("[data-open='upload']").forEach((button) => {
+        button.hidden = currentRole === "auditor";
+      });
+      const activeSection = document.querySelector(".section.active")?.id || firstAllowedSection();
+      if (!canAccess(activeSection)) showSection(firstAllowedSection());
+    }
+
+    function rolePanel() {
+      const role = roleDefinitions[currentRole];
+      const applicantCount = currentRole === "applicant" ? 1 : state.summary.farmers;
+      return [
+        fact("Active role", role.label, currentRole === "admin" ? "money" : currentRole === "auditor" ? "warn-text" : ""),
+        fact("Applicant records visible", applicantCount),
+        fact("Privilege boundary", role.note),
+        `<div class="quick-actions">${role.privileges.map((name) => `<span class="tag blue">${name}</span>`).join("")}</div>`,
+      ].join("");
+    }
+
+    function adminRoleManagement() {
+      if (currentRole !== "admin") return "";
+      const rows = Object.entries(roleDefinitions).map(([key, role]) => `<tr><td>${role.label}</td><td>${role.sections.join(", ")}</td><td>${role.privileges.join(", ")}</td><td><span class="tag ${key === currentRole ? "blue" : ""}">${key === currentRole ? "active" : "configured"}</span></td></tr>`).join("");
+      return `<div class="card" style="margin-top:14px"><h2>Role Management</h2><table><thead><tr><th>Role</th><th>Page Access</th><th>Privileges</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function renderOverview() {
@@ -1826,9 +1902,11 @@ DASHBOARD_HTML = """<!doctype html>
             fact("Τύπος δικαιούχου", state.farmer.farmer_type),
             fact("Ενεργός αγρότης", state.farmer.active_farmer ? "Ναι" : "Όχι"),
           ].join(""))}
-          ${card("Έλεγχος Ακεραιότητας Εγγραφής", applicantIntegrity())}
+          ${card("Role & Privileges", rolePanel())}
         </div>
+        ${adminRoleManagement()}
         <div class="grid two" style="margin-top:14px">
+          ${card("Έλεγχος Ακεραιότητας Εγγραφής", applicantIntegrity())}
           ${card("Πληρωτέο Ποσό", [
             fact("Τελική ενίσχυση", money(state.subsidy_claim.final_amount_eur), "money"),
             fact("Συμψηφισμός οφειλής", money(state.subsidy_claim.debt_offset.offset_eur), "warn-text"),
@@ -1954,7 +2032,11 @@ DASHBOARD_HTML = """<!doctype html>
             fact("Καθαρό μετά συμψηφισμούς", money(state.financial_analysis.net_after_offsets_eur), "money"),
             fact("Κάλυψη δικαιολογητικών", state.financial_analysis.document_coverage),
           ].join(""))}
+          ${card("Applicant Techno-Economic View", applicantTechnoEconomicSummary(selected))}
+        </div>
+        <div class="grid two" style="margin-top:14px">
           ${card("Γράφημα Εσόδων και Στήριξης", '<canvas id="finance-chart"></canvas>')}
+          ${card("Market Flow Events", marketFlowEvents(selected))}
         </div>
         <div class="card" style="margin-top:14px">
           <h2>Σενάρια Πληρωμής</h2>
@@ -2003,11 +2085,87 @@ DASHBOARD_HTML = """<!doctype html>
           ].join(""))}
           ${card("Γράφημα Πληρωμής Κρίσης", '<canvas id="crisis-chart"></canvas>')}
         </div>
+        <div class="grid two" style="margin-top:14px">
+          ${card("Applicant Crisis Evidence", crisisEvidenceGuidance())}
+          ${card("Government Coverage Estimate", crisisCoverageSummary())}
+        </div>
         <div class="card" style="margin-top:14px">
           <h2>Ενέργειες Συμβάντος</h2>
           <div class="quick-actions"><button data-open="upload">Υποβολή τεκμηρίων συμβάντος</button><button class="blue">Αίτημα επιτόπιου ελέγχου</button><button class="secondary">Εξαγωγή φακέλου κρίσης</button></div>
+          <p class="muted">Ο αιτών μπορεί να ανεβάσει φωτογραφίες, αρχεία καιρού, τιμολόγια, δηλώσεις ζημιάς ή άλλα τεκμήρια που δείχνουν ζημιά παραγωγής από ξηρασία, πλημμύρα, πυρκαγιά, παγετό ή άλλη συνθήκη.</p>
         </div>`;
       rebindDynamicButtons();
+    }
+
+    function renderReports() {
+      const role = roleDefinitions[currentRole];
+      const report = {
+        generated_at: new Date().toISOString(),
+        role: role.label,
+        applicant: {
+          farmer_id: state.farmer.farmer_id,
+          legal_name: state.farmer.legal_name,
+          tax_identifier: state.farmer.tax_identifier,
+          integrity_status: applicantScreening?.status || "not_screened",
+        },
+        audit: {
+          score: state.audit_analysis.score,
+          event_count: state.audit_analysis.event_count,
+          findings: state.audit_analysis.findings,
+        },
+        documents: {
+          submitted: state.documents.length,
+          requirements: state.document_requirements,
+        },
+        finance: {
+          gross_public_support_eur: state.financial_analysis.gross_public_support_eur,
+          net_after_offsets_eur: state.financial_analysis.net_after_offsets_eur,
+          tax_and_debt_exposure_eur: state.financial_analysis.tax_and_debt_exposure_eur,
+        },
+        crisis: {
+          active_incident: state.crisis_management.active_incident,
+          severity: state.crisis_management.severity,
+          gross_payment_eur: state.crisis_management.gross_payment_eur,
+        },
+      };
+      const canProduce = currentRole === "admin" || currentRole === "auditor";
+      document.getElementById("reports").innerHTML = `
+        <div class="grid two">
+          ${card("Report Scope", [
+            fact("Generated for role", role.label, canProduce ? "money" : "warn-text"),
+            fact("Applicant records included", currentRole === "applicant" ? 1 : state.summary.farmers),
+            fact("Audit events included", state.audit_analysis.event_count),
+            fact("Document records included", state.documents.length),
+            fact("Financial visibility", canProduce ? "full related record" : "own application summary"),
+          ].join(""))}
+          ${card("Produce Report", canProduce ? '<div class="quick-actions"><button id="download-report" type="button">Download JSON Report</button><button class="secondary" data-section-jump="audit">Review Audit</button><button class="secondary" data-section-jump="documents">Review Documents</button></div><p class="muted">The report packages applicant identity, document coverage, audit findings, payment exposure, and crisis status for the current role scope.</p>' : '<p class="muted">Applicants can view their own application summary. Report production is available to admin and auditor roles.</p>')}
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h2>Report Preview</h2>
+          <table><thead><tr><th>Area</th><th>Summary</th><th>Status</th></tr></thead><tbody>
+            <tr><td>Applicant</td><td>${report.applicant.legal_name} / ${report.applicant.tax_identifier}</td><td>${report.applicant.integrity_status}</td></tr>
+            <tr><td>Documents</td><td>${report.documents.submitted} submitted from ${report.documents.requirements.length} required</td><td>${report.documents.submitted >= report.documents.requirements.length ? "complete" : "pending"}</td></tr>
+            <tr><td>Audit</td><td>${report.audit.score}% confidence, ${report.audit.event_count} events</td><td>${report.audit.score > 80 ? "clear" : "review"}</td></tr>
+            <tr><td>Finance</td><td>${money(report.finance.net_after_offsets_eur)} net after offsets</td><td>calculated</td></tr>
+            <tr><td>Crisis</td><td>${report.crisis.active_incident}</td><td>${report.crisis.severity}</td></tr>
+          </tbody></table>
+        </div>`;
+      if (canProduce) {
+        document.getElementById("download-report").addEventListener("click", () => downloadReport(report));
+      }
+      rebindDynamicButtons();
+    }
+
+    function downloadReport(report) {
+      const blob = new Blob([JSON.stringify(report, null, 2)], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `opekepe-${currentRole}-report-${state.farmer.farmer_id}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     }
 
     function renderAssistant() {
@@ -2096,6 +2254,52 @@ DASHBOARD_HTML = """<!doctype html>
         fact("Ακαθάριστη μέγιστη αγοραία αξία", money(selected.market_cap_eur), "money"),
         fact("Αξία υποπροϊόντων", money(selected.byproduct_income_eur), "money"),
         fact("Καθαρό περιθώριο", money(selected.net_margin_eur), Number(selected.net_margin_eur) >= 0 ? "money" : "warn-text"),
+      ].join("");
+    }
+
+    function applicantTechnoEconomicSummary(selected) {
+      return [
+        fact("Expected subsidy", money(selected.subsidy_eur), "money"),
+        fact("Subsidies owed back / offsets", money(state.subsidy_claim.debt_offset.offset_eur), "warn-text"),
+        fact("Expected disbursable amount", money(state.subsidy_claim.debt_offset.disbursable_eur), "money"),
+        fact("Projected gross crop income", money(selected.gross_income_eur), "money"),
+        fact("Projected by-product income", money(selected.byproduct_income_eur), "money"),
+        fact("Input and field cost exposure", money(selected.total_cost_eur), "warn-text"),
+        fact("Estimated net margin", money(selected.net_margin_eur), Number(selected.net_margin_eur) >= 0 ? "money" : "warn-text"),
+        fact("Market cap at max yield", money(selected.market_cap_eur), "money"),
+      ].join("");
+    }
+
+    function marketFlowEvents(selected) {
+      const byproductCount = selected.industry_rates.byproducts.length;
+      return `<table><thead><tr><th>Event</th><th>Economic signal</th><th>Applicant impact</th></tr></thead><tbody>
+        <tr><td>Declared crop plan</td><td>${selected.label} on ${selected.declared_area_ha} ha</td><td>Subsidy base ${money(selected.subsidy_eur)}</td></tr>
+        <tr><td>Yield forecast</td><td>${selected.forecast_yield_tonnes} t expected / ${selected.max_yield_tonnes} t cap</td><td>Market cap ${money(selected.market_cap_eur)}</td></tr>
+        <tr><td>Primary product flow</td><td>${money(selected.market_price_eur_per_tonne)}/t market price</td><td>Gross income ${money(selected.gross_income_eur)}</td></tr>
+        <tr><td>By-product flow</td><td>${byproductCount} by-product rates connected</td><td>Extra value ${money(selected.byproduct_income_eur)}</td></tr>
+        <tr><td>Debt and subsidy clearing</td><td>${money(state.subsidy_claim.debt_offset.offset_eur)} retained</td><td>Net public support ${money(state.subsidy_claim.debt_offset.disbursable_eur)}</td></tr>
+      </tbody></table>`;
+    }
+
+    function crisisEvidenceGuidance() {
+      return [
+        fact("Evidence channel", "Upload crisis document", "money"),
+        fact("Weather evidence", "rainfall deficit, flood trace, frost, wind, fire perimeter"),
+        fact("Crop damage evidence", "photos, agronomist note, field inspection, yield reduction"),
+        fact("Financial evidence", "first sales, invoices, repair costs, lost production value"),
+        fact("Current crisis trigger", state.crisis_management.weather_trigger, "warn-text"),
+      ].join("");
+    }
+
+    function crisisCoverageSummary() {
+      const crisis = state.crisis_management;
+      return [
+        fact("Gross crisis payment estimate", money(crisis.gross_payment_eur), "money"),
+        fact("Property value exposed", money(crisis.property_value_eur)),
+        fact("Property destruction loss", money(crisis.property_destruction_loss_eur), "warn-text"),
+        fact("Collective revenue loss", money(crisis.collective_revenue_loss_eur), "warn-text"),
+        fact("Net subsidy after offsets", money(state.subsidy_claim.debt_offset.disbursable_eur), "money"),
+        fact("Review status", crisis.response_status),
       ].join("");
     }
 
@@ -2341,6 +2545,7 @@ DASHBOARD_HTML = """<!doctype html>
       document.querySelectorAll("[data-section-jump]").forEach((button) => {
         button.onclick = () => showSection(button.dataset.sectionJump);
       });
+      configureRoleAccess();
     }
   </script>
 </body>
