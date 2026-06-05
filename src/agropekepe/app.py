@@ -320,6 +320,7 @@ def _dashboard_payload(service: AgroLedgerService) -> dict[str, Any]:
             {"name": "Ιστορικό ελέγχου", "status": "αρχικοποιημένη", "records": len(service.repository.audit_events())},
         ],
         "farmer": to_jsonable(primary_farmer),
+        "applicants": to_jsonable(farmers),
         "parcels": to_jsonable(parcels),
         "crop_seasons": to_jsonable(crop_seasons),
         "documents": documents,
@@ -1428,6 +1429,7 @@ DASHBOARD_HTML = """<!doctype html>
         <div class="brand">OPEKEPE</div>
         <nav id="nav">
           <button class="active" data-section="overview">Επισκόπηση</button>
+          <button data-section="applicants">Applicants</button>
           <button data-section="documents">Δικαιολογητικά</button>
           <button data-section="land">Δήλωση Γης</button>
           <button data-section="forecast">Πρόβλεψη Καλλιέργειας</button>
@@ -1452,6 +1454,7 @@ DASHBOARD_HTML = """<!doctype html>
         </header>
         <div class="content">
           <section class="section active" id="overview"></section>
+          <section class="section" id="applicants"></section>
           <section class="section" id="documents"></section>
           <section class="section" id="land"></section>
           <section class="section" id="forecast"></section>
@@ -1663,6 +1666,7 @@ DASHBOARD_HTML = """<!doctype html>
     const reversePlaceholderTranslations = Object.fromEntries(Object.entries(placeholderTranslations).map(([key, value]) => [value, key]));
     const titles = {
       overview: ["Επισκόπηση", "Αρχικοποιημένες υπηρεσίες, εικόνα πληρωμών και προφίλ δικαιούχου"],
+      applicants: ["Applicants", "Admin view of applicants, service windows, and load balancing"],
       documents: ["Δικαιολογητικά", "Υποβολή και έλεγχος όλων των απαιτούμενων στοιχείων"],
       land: ["Δήλωση Γης", "Δήλωση αγροτεμαχίων από Google Maps, Google Earth ή GeoJSON"],
       forecast: ["Πρόβλεψη Καλλιέργειας", "Βάση αποδόσεων και τεχνοοικονομική ανάλυση"],
@@ -1681,14 +1685,14 @@ DASHBOARD_HTML = """<!doctype html>
       admin: {
         label: "Admin",
         note: "Can view and manage every area, role, applicant, audit queue, and report.",
-        sections: ["overview", "documents", "land", "forecast", "audit", "finance", "crisis", "reports"],
-        privileges: ["all_applicants", "role_management", "audit_override", "financial_review", "reports"],
+        sections: ["overview", "applicants", "documents", "land", "forecast", "audit", "finance", "crisis", "reports"],
+        privileges: ["all_applicants", "role_management", "load_balancing", "audit_override", "financial_review", "reports"],
       },
       auditor: {
         label: "Auditor",
-        note: "Can inspect related applicant records, perform audits, review finance/crisis evidence, and produce reports.",
-        sections: ["overview", "documents", "audit", "finance", "crisis", "reports"],
-        privileges: ["applicant_review", "document_audit", "risk_scoring", "report_export"],
+        note: "Can inspect applicant documents and related economic-analysis objects only.",
+        sections: ["overview", "documents", "finance"],
+        privileges: ["document_review", "economic_analysis", "payment_exposure"],
       },
     };
     const money = (value) => `${Number(value || 0).toLocaleString(currentLanguage === "el" ? "el-GR" : "en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2})} EUR`;
@@ -1831,6 +1835,7 @@ DASHBOARD_HTML = """<!doctype html>
 
     function renderAll() {
       renderOverview();
+      renderApplicants();
       renderDocuments();
       renderLand();
       renderCropForecast();
@@ -1884,6 +1889,27 @@ DASHBOARD_HTML = """<!doctype html>
       return `<div class="card" style="margin-top:14px"><h2>Role Management</h2><table><thead><tr><th>Role</th><th>Page Access</th><th>Privileges</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
+    function renderApplicants() {
+      const applicants = state.applicants || [state.farmer];
+      document.getElementById("applicants").innerHTML = `
+        <div class="grid metrics">
+          ${metric("Total applicants", applicants.length)}
+          ${metric("Documents in system", state.summary.documents)}
+          ${metric("Audit events", state.summary.audit_events)}
+          ${metric("Economic records", state.summary.first_sales + state.summary.debts)}
+          ${metric("Crisis cases", state.summary.crisis_events)}
+        </div>
+        <div class="grid two" style="margin-top:14px">
+          ${card("All Applicants", applicantsTable(applicants))}
+          ${card("Load Balancing", loadBalancingTable())}
+        </div>
+        <div class="grid two" style="margin-top:14px">
+          ${card("Service Windows", serviceWindowTable())}
+          ${card("Admin Actions", '<div class="quick-actions"><button class="blue" data-section-jump="documents">Open Documents</button><button class="secondary" data-section-jump="audit">Audit Queue</button><button class="secondary" data-section-jump="finance">Economic Review</button><button class="secondary" data-section-jump="reports">Reports</button></div><p class="muted">Use this page as the admin control room: see every applicant, where work is queued, and which operational window should receive capacity.</p>')}
+        </div>`;
+      rebindDynamicButtons();
+    }
+
     function renderOverview() {
       const s = state.summary;
       document.getElementById("overview").innerHTML = `
@@ -1922,13 +1948,16 @@ DASHBOARD_HTML = """<!doctype html>
     }
 
     function renderDocuments() {
+      const actionCard = currentRole === "auditor"
+        ? card("Auditor Document Objects", auditorDocumentObjects())
+        : card("Ενέργειες Υποβολής", '<div class="quick-actions"><button data-open="upload">Υποβολή δικαιολογητικού</button><button class="secondary" data-section-jump="audit">Έλεγχος ελέγχου</button></div><p class="muted">Η πύλη καταγράφει μεταδεδομένα δικαιολογητικών, αποδίδει κατάσταση ελέγχου και τροφοδοτεί την ελεγκτική και οικονομική ανάλυση.</p>');
       document.getElementById("documents").innerHTML = `
         <div class="grid two">
           ${card("Απαιτούμενα Στοιχεία", requirementsTable())}
           ${card("Υποβληθέντα Δικαιολογητικά", documentsTable())}
         </div>
         <div class="grid two" style="margin-top:14px">
-          ${card("Ενέργειες Υποβολής", '<div class="quick-actions"><button data-open="upload">Υποβολή δικαιολογητικού</button><button class="secondary" data-section-jump="audit">Έλεγχος ελέγχου</button></div><p class="muted">Η πύλη καταγράφει μεταδεδομένα δικαιολογητικών, αποδίδει κατάσταση ελέγχου και τροφοδοτεί την ελεγκτική και οικονομική ανάλυση.</p>')}
+          ${actionCard}
           ${card("Ανάλυση Δικαιολογητικών", documentAnalysis())}
         </div>`;
       rebindDynamicButtons();
@@ -2032,7 +2061,7 @@ DASHBOARD_HTML = """<!doctype html>
             fact("Καθαρό μετά συμψηφισμούς", money(state.financial_analysis.net_after_offsets_eur), "money"),
             fact("Κάλυψη δικαιολογητικών", state.financial_analysis.document_coverage),
           ].join(""))}
-          ${card("Applicant Techno-Economic View", applicantTechnoEconomicSummary(selected))}
+          ${currentRole === "auditor" ? card("Auditor Economic Objects", auditorEconomicObjects(selected)) : card("Applicant Techno-Economic View", applicantTechnoEconomicSummary(selected))}
         </div>
         <div class="grid two" style="margin-top:14px">
           ${card("Γράφημα Εσόδων και Στήριξης", '<canvas id="finance-chart"></canvas>')}
@@ -2270,6 +2299,17 @@ DASHBOARD_HTML = """<!doctype html>
       ].join("");
     }
 
+    function auditorEconomicObjects(selected) {
+      return `<table><thead><tr><th>Related Object</th><th>Value</th><th>Audit Use</th></tr></thead><tbody>
+        <tr><td>Declared yield plan</td><td>${selected.label} / ${selected.forecast_yield_tonnes} t</td><td>compare crop plan against documents</td></tr>
+        <tr><td>Subsidy calculation</td><td>${money(selected.subsidy_eur)}</td><td>validate support basis</td></tr>
+        <tr><td>Debt offset</td><td>${money(state.subsidy_claim.debt_offset.offset_eur)}</td><td>check owed-back exposure</td></tr>
+        <tr><td>First sale deductions</td><td>${money(state.financial_analysis.first_sale_deductions.net_product_after_deductions_eur)}</td><td>reconcile invoices and market fees</td></tr>
+        <tr><td>By-product market value</td><td>${money(selected.byproduct_income_eur)}</td><td>verify connected by-product income</td></tr>
+        <tr><td>Maximum market cap</td><td>${money(selected.market_cap_eur)}</td><td>identify inflated yield claims</td></tr>
+      </tbody></table>`;
+    }
+
     function marketFlowEvents(selected) {
       const byproductCount = selected.industry_rates.byproducts.length;
       return `<table><thead><tr><th>Event</th><th>Economic signal</th><th>Applicant impact</th></tr></thead><tbody>
@@ -2318,6 +2358,40 @@ DASHBOARD_HTML = """<!doctype html>
       return `<table><thead><tr><th>Υπηρεσία</th><th>Κατάσταση</th><th>Εγγραφές</th></tr></thead><tbody>${state.services.map((service) => `<tr><td>${service.name}</td><td><span class="status">${service.status}</span></td><td>${service.records}</td></tr>`).join("")}</tbody></table>`;
     }
 
+    function applicantsTable(applicants) {
+      return `<table><thead><tr><th>Applicant</th><th>Tax ID</th><th>Role View</th><th>Operational Status</th></tr></thead><tbody>${applicants.map((applicant) => `<tr><td>${applicant.legal_name}</td><td>${applicant.tax_identifier}</td><td>Applicant/Admin/Auditor</td><td><span class="status">${applicant.active_farmer ? "active" : "inactive"}</span></td></tr>`).join("")}</tbody></table>`;
+    }
+
+    function loadBalancingRows() {
+      const documentsNeeded = Math.max(0, state.document_requirements.filter((row) => row.status === "needed").length);
+      const economicLoad = state.summary.first_sales + state.summary.debts;
+      return [
+        {window: "Intake", queue: state.summary.farmers, team: "2 clerks", recommendation: "normal capacity"},
+        {window: "Document review", queue: documentsNeeded || state.summary.documents, team: "3 reviewers", recommendation: documentsNeeded ? "shift one reviewer from intake" : "stable"},
+        {window: "Audit control", queue: state.audit_analysis.findings.length + state.summary.audit_events, team: "2 auditors", recommendation: state.audit_analysis.score < 85 ? "priority audit lane" : "standard lane"},
+        {window: "Economic analysis", queue: economicLoad, team: "2 analysts", recommendation: economicLoad > 2 ? "balance with document reviewers" : "stable"},
+        {window: "Crisis incidents", queue: state.summary.crisis_events, team: "1 field coordinator", recommendation: state.summary.crisis_events ? "keep field slot open" : "standby"},
+        {window: "Reports", queue: 1, team: "admin", recommendation: "generate on demand"},
+      ];
+    }
+
+    function loadBalancingTable() {
+      return `<table><thead><tr><th>Window</th><th>Queue</th><th>Assigned Capacity</th><th>Recommendation</th></tr></thead><tbody>${loadBalancingRows().map((row) => `<tr><td>${row.window}</td><td>${row.queue}</td><td>${row.team}</td><td>${row.recommendation}</td></tr>`).join("")}</tbody></table>`;
+    }
+
+    function serviceWindowTable() {
+      const windows = [
+        ["Applicant registry", state.summary.farmers, "identity and role state"],
+        ["Land declaration", state.summary.parcels, "parcel and area evidence"],
+        ["Crop planning", state.summary.crop_seasons, "yield and subsidy forecast"],
+        ["Documents", state.summary.documents, "uploaded applicant evidence"],
+        ["Economic analysis", state.summary.first_sales + state.summary.debts, "sales, debts, offsets"],
+        ["Crisis management", state.summary.crisis_events, "damage and compensation"],
+        ["Audit trail", state.summary.audit_events, "traceability events"],
+      ];
+      return `<table><thead><tr><th>Window</th><th>Records</th><th>Purpose</th></tr></thead><tbody>${windows.map((row) => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`).join("")}</tbody></table>`;
+    }
+
     function requirementsTable() {
       return `<table><thead><tr><th>Απαιτούμενο στοιχείο</th><th>Κατάσταση</th></tr></thead><tbody>${state.document_requirements.map((row) => `<tr><td>${row.label}</td><td><span class="tag ${row.status === "needed" ? "warn" : ""}">${row.status}</span></td></tr>`).join("")}</tbody></table>`;
     }
@@ -2325,6 +2399,13 @@ DASHBOARD_HTML = """<!doctype html>
     function documentsTable() {
       if (!state.documents.length) return '<p class="muted">Δεν υπάρχουν ακόμη υποβολές. Χρησιμοποιήστε την Υποβολή για ταυτότητα, γη, οικονομικά, τράπεζα ή τεκμήρια κρίσης.</p>';
       return `<table><thead><tr><th>Αρχείο</th><th>Τύπος</th><th>Κατάσταση</th></tr></thead><tbody>${state.documents.map((doc) => `<tr><td>${doc.file_name}</td><td>${doc.document_type}</td><td><span class="status">${doc.status}</span></td></tr>`).join("")}</tbody></table>`;
+    }
+
+    function auditorDocumentObjects() {
+      const rows = state.documents.map((doc) => `<tr><td>${doc.document_type}</td><td>${doc.file_name}</td><td>${doc.analysis.audit_mode || "standard_audit"}</td><td>${doc.analysis.risk}</td></tr>`).join("");
+      return rows
+        ? `<table><thead><tr><th>Object</th><th>File</th><th>Audit Mode</th><th>Risk</th></tr></thead><tbody>${rows}</tbody></table>`
+        : '<p class="muted">No applicant documents are available for auditor review yet.</p>';
     }
 
     function documentAnalysis() {
