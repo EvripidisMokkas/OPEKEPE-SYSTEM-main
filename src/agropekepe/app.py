@@ -970,31 +970,36 @@ DASHBOARD_HTML = """<!doctype html>
   <style>
     :root {
       color-scheme: light;
-      --ink: #18221d;
-      --muted: #657169;
-      --line: #d7dfdb;
+      --ink: #111827;
+      --muted: #667085;
+      --line: #d9e2e7;
       --panel: #ffffff;
-      --field: #f4f7f5;
-      --green: #2d7650;
-      --blue: #286f9e;
-      --gold: #ad7a25;
-      --red: #a6473b;
-      --violet: #6656a6;
-      --shadow: 0 10px 26px rgba(29, 47, 37, .10);
+      --field: #f6f8fa;
+      --python-blue: #306998;
+      --python-yellow: #ffd43b;
+      --django-green: #0c4b33;
+      --django-mint: #44b78b;
+      --console: #0b1220;
+      --green: #0c7c59;
+      --blue: #306998;
+      --gold: #b88217;
+      --red: #b42318;
+      --violet: #5b5fc7;
+      --shadow: 0 12px 28px rgba(15, 23, 42, .10);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-width: 320px;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Inter, "Segoe UI", Arial, Helvetica, sans-serif;
       color: var(--ink);
-      background: #eef2ef;
+      background: #eef3f6;
     }
     button, input, select { font: inherit; }
     button {
       min-height: 38px;
-      border: 1px solid #245f3f;
-      background: var(--green);
+      border: 1px solid #083824;
+      background: var(--django-green);
       color: white;
       border-radius: 8px;
       padding: 8px 12px;
@@ -1010,8 +1015,9 @@ DASHBOARD_HTML = """<!doctype html>
       place-items: center;
       padding: 24px;
       background:
-        linear-gradient(120deg, rgba(45,118,80,.18), rgba(40,111,158,.14)),
-        #edf3ef;
+        radial-gradient(circle at 20% 18%, rgba(255, 212, 59, .28), transparent 28%),
+        linear-gradient(135deg, rgba(48,105,152,.18), rgba(12,75,51,.14)),
+        #eef3f6;
     }
     .login-panel {
       width: min(980px, 100%);
@@ -1026,7 +1032,18 @@ DASHBOARD_HTML = """<!doctype html>
       border-radius: 8px;
       box-shadow: var(--shadow);
     }
-    .login-copy { padding: 30px; }
+    .login-copy { padding: 30px; position: relative; overflow: hidden; }
+    .login-copy::before {
+      content: "python manage.py runserver";
+      display: inline-flex;
+      margin-bottom: 18px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: var(--console);
+      color: #f8fafc;
+      font: 700 12px Consolas, "Courier New", monospace;
+      border-left: 4px solid var(--python-yellow);
+    }
     .login-copy h1 { margin: 0 0 10px; font-size: 32px; letter-spacing: 0; }
     .login-copy p { margin: 0; color: var(--muted); line-height: 1.5; }
     .login-form, .registration-form { padding: 22px; }
@@ -1045,23 +1062,43 @@ DASHBOARD_HTML = """<!doctype html>
     .app { display: none; min-height: 100vh; }
     .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
     aside {
-      background: #17221c;
+      background: var(--console);
       color: #edf7f0;
       padding: 18px;
       position: sticky;
       top: 0;
       height: 100vh;
     }
-    .brand { font-size: 19px; font-weight: 800; margin-bottom: 16px; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 19px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+    .brand::before {
+      content: "Py";
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--python-blue) 0 50%, var(--python-yellow) 50% 100%);
+      color: white;
+      font: 800 12px Consolas, "Courier New", monospace;
+      text-shadow: 0 1px 1px rgba(0,0,0,.35);
+    }
     nav { display: grid; gap: 8px; }
     nav button {
       width: 100%;
       text-align: left;
       background: transparent;
-      border-color: rgba(255,255,255,.16);
+      border-color: rgba(255,255,255,.14);
       color: #edf7f0;
+      border-radius: 6px;
     }
-    nav button.active { background: #2d7650; border-color: #2d7650; }
+    nav button.active { background: var(--django-green); border-color: var(--django-mint); }
     main { min-width: 0; }
     header {
       position: sticky;
@@ -1072,7 +1109,7 @@ DASHBOARD_HTML = """<!doctype html>
       gap: 14px;
       align-items: center;
       padding: 16px 22px;
-      background: rgba(249,251,250,.94);
+      background: rgba(248,250,252,.95);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(10px);
     }
@@ -1084,7 +1121,14 @@ DASHBOARD_HTML = """<!doctype html>
     .metrics { grid-template-columns: repeat(5, minmax(140px, 1fr)); }
     .two { grid-template-columns: minmax(0, 1fr) minmax(320px, .72fr); align-items: start; }
     .three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .card { padding: 16px; box-shadow: 0 1px 2px rgba(28, 42, 34, .04); }
+    .card {
+      padding: 16px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+      border-top: 3px solid #e6edf2;
+    }
+    .card:nth-child(3n + 1) { border-top-color: var(--python-blue); }
+    .card:nth-child(3n + 2) { border-top-color: var(--django-mint); }
+    .card:nth-child(3n + 3) { border-top-color: var(--python-yellow); }
     .metric strong { display: block; font-size: 26px; margin-bottom: 5px; }
     .metric span, .muted { color: var(--muted); font-size: 13px; line-height: 1.4; }
     .card h2 { margin: 0 0 12px; font-size: 17px; }
@@ -1095,13 +1139,13 @@ DASHBOARD_HTML = """<!doctype html>
       min-height: 24px;
       padding: 3px 8px;
       border-radius: 999px;
-      background: #e6f2eb;
-      color: #215b39;
+      background: #e7f5ee;
+      color: var(--django-green);
       font-size: 12px;
       font-weight: 700;
     }
-    .tag.warn { background: #fbf0d9; color: #7d5517; }
-    .tag.blue { background: #e4f0f8; color: #20577e; }
+    .tag.warn { background: #fff4bf; color: #7a5600; }
+    .tag.blue { background: #e7f0f8; color: var(--python-blue); }
     .fact { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
     .fact:last-child { border-bottom: 0; }
     .fact strong { text-align: right; }
@@ -1109,16 +1153,27 @@ DASHBOARD_HTML = """<!doctype html>
     .warn-text { color: var(--gold); font-weight: 800; }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: top; }
-    th { color: var(--muted); background: var(--field); }
-    canvas { width: 100%; height: 210px; display: block; background: #fbfdfc; border: 1px solid var(--line); border-radius: 8px; }
+    th { color: var(--muted); background: #f3f6f8; font-size: 12px; text-transform: uppercase; }
+    canvas {
+      width: 100%;
+      height: 210px;
+      display: block;
+      background:
+        linear-gradient(90deg, rgba(48,105,152,.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(12,75,51,.07) 1px, transparent 1px),
+        #fbfdff;
+      background-size: 28px 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
     .map-shell {
       min-height: 280px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background:
-        linear-gradient(90deg, rgba(45,118,80,.18) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(40,111,158,.16) 1px, transparent 1px),
-        #f8fbf9;
+        linear-gradient(90deg, rgba(48,105,152,.16) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(12,75,51,.14) 1px, transparent 1px),
+        #f8fbfc;
       background-size: 36px 36px;
       position: relative;
       overflow: hidden;
@@ -1158,8 +1213,8 @@ DASHBOARD_HTML = """<!doctype html>
     }
     .language-switch {
       position: fixed;
-      top: 14px;
-      right: 14px;
+      left: 14px;
+      bottom: 14px;
       z-index: 60;
       display: inline-flex;
       gap: 4px;
@@ -1181,7 +1236,7 @@ DASHBOARD_HTML = """<!doctype html>
       color: white;
     }
     .forecast-window {
-      border: 2px solid #c8d8d0;
+      border: 2px solid #d9e2e7;
       border-radius: 8px;
       background: #fbfdfc;
       padding: 14px;
@@ -1271,6 +1326,7 @@ DASHBOARD_HTML = """<!doctype html>
       .quick-actions { width: 100%; }
       .quick-actions button { flex: 1 1 130px; }
       .overlay-actions { right: 12px; bottom: 12px; }
+      .language-switch { left: 12px; bottom: 12px; }
     }
   </style>
 </head>
@@ -2150,37 +2206,37 @@ DASHBOARD_HTML = """<!doctype html>
 
     function drawCharts() {
       if (!state) return;
-      drawBars("payment-chart", state.financial_analysis.payment_scenarios.map((x) => ({label: x.label, value: Number(x.net)})), ["#2d7650", "#286f9e", "#a6473b"]);
-      drawBars("finance-chart", state.financial_analysis.series.map((x) => ({label: x.label, value: Number(x.value)})), ["#286f9e", "#ad7a25", "#2d7650", "#6656a6", "#a6473b"]);
-      drawBars("crisis-chart", state.crisis_management.scenarios.map((x) => ({label: x.label, value: Number(x.value)})), ["#ad7a25", "#2d7650", "#286f9e", "#a6473b"]);
-      drawBars("forecast-weather-chart", state.crop_forecast.weather_forecast.forecast.map((x) => ({label: x.day, value: Number(x.rain_mm)})), ["#286f9e", "#2d7650", "#ad7a25", "#6656a6"]);
-      drawBars("market-cap-chart", state.crop_forecast.options.slice(0, 10).map((row) => ({label: row.label, value: Number(row.market_cap_eur)})), ["#286f9e", "#2d7650", "#ad7a25", "#6656a6"]);
+      drawBars("payment-chart", state.financial_analysis.payment_scenarios.map((x) => ({label: x.label, value: Number(x.net)})), ["#0c4b33", "#306998", "#b42318"]);
+      drawBars("finance-chart", state.financial_analysis.series.map((x) => ({label: x.label, value: Number(x.value)})), ["#306998", "#ffd43b", "#0c4b33", "#5b5fc7", "#b42318"]);
+      drawBars("crisis-chart", state.crisis_management.scenarios.map((x) => ({label: x.label, value: Number(x.value)})), ["#b88217", "#0c4b33", "#306998", "#b42318"]);
+      drawBars("forecast-weather-chart", state.crop_forecast.weather_forecast.forecast.map((x) => ({label: x.day, value: Number(x.rain_mm)})), ["#306998", "#44b78b", "#ffd43b", "#5b5fc7"]);
+      drawBars("market-cap-chart", state.crop_forecast.options.slice(0, 10).map((row) => ({label: row.label, value: Number(row.market_cap_eur)})), ["#306998", "#0c4b33", "#ffd43b", "#5b5fc7"]);
       const selected = selectedForecast();
       drawBars("crop-yield-chart", [
         {label: "Πρόβλεψη", value: Number(selected.forecast_yield_tonnes)},
         {label: "Μέγιστο", value: Number(selected.max_yield_tonnes)},
-      ], ["#286f9e", "#2d7650"]);
+      ], ["#306998", "#0c4b33"]);
       drawBars("crop-finance-chart", [
         {label: "Κόστη", value: Number(selected.total_cost_eur)},
         {label: "Εισόδημα", value: Number(selected.gross_income_eur)},
         {label: "Ενίσχυση", value: Number(selected.subsidy_eur)},
         {label: "Περιθώριο", value: Math.max(Number(selected.net_margin_eur), 0)},
-      ], ["#ad7a25", "#286f9e", "#2d7650", "#6656a6"]);
-      drawBars("crop-subsidy-chart", state.crop_forecast.options.slice(0, 10).map((row) => ({label: row.label, value: Number(row.subsidy_eur)})), ["#2d7650", "#286f9e", "#ad7a25", "#6656a6"]);
+      ], ["#b88217", "#306998", "#0c4b33", "#5b5fc7"]);
+      drawBars("crop-subsidy-chart", state.crop_forecast.options.slice(0, 10).map((row) => ({label: row.label, value: Number(row.subsidy_eur)})), ["#0c4b33", "#306998", "#ffd43b", "#5b5fc7"]);
       drawBars("finance-yield-chart", [
         {label: "Προϊόν", value: Number(selected.gross_income_eur)},
         {label: "Υποπροϊόντα", value: Number(selected.byproduct_income_eur)},
         {label: "Ενίσχυση", value: Number(selected.subsidy_eur)},
-      ], ["#286f9e", "#ad7a25", "#2d7650"]);
+      ], ["#306998", "#ffd43b", "#0c4b33"]);
       drawBars("industry-rates-chart", [
         {label: "Προϊόν", value: Number(selected.market_price_eur_per_tonne)},
         ...selected.industry_rates.byproducts.map((row) => ({label: row.name, value: Number(row.market_price_eur_per_tonne)})),
-      ], ["#286f9e", "#ad7a25", "#2d7650", "#6656a6"]);
+      ], ["#306998", "#ffd43b", "#0c4b33", "#5b5fc7"]);
       drawBars("finance-market-chart", [
         {label: "Μέγ. αξία", value: Number(selected.market_cap_eur)},
         {label: "Ακαθάριστο", value: Number(selected.gross_income_eur)},
         {label: "Καθ. περιθώριο", value: Math.max(Number(selected.net_margin_eur), 0)},
-      ], ["#6656a6", "#286f9e", "#2d7650"]);
+      ], ["#5b5fc7", "#306998", "#0c4b33"]);
       drawGauge("audit-chart", state.audit_analysis.score);
     }
 
@@ -2202,8 +2258,8 @@ DASHBOARD_HTML = """<!doctype html>
         const y = 158 - height;
         ctx.fillStyle = colors[index % colors.length];
         ctx.fillRect(x, y, barWidth, height);
-        ctx.fillStyle = "#18221d";
-        ctx.font = "12px Arial";
+        ctx.fillStyle = "#111827";
+        ctx.font = "12px Consolas, 'Courier New', monospace";
         ctx.fillText(row.label.slice(0, 13), x, 184);
       });
     }
@@ -2219,19 +2275,19 @@ DASHBOARD_HTML = """<!doctype html>
       const cx = rect.width / 2;
       ctx.clearRect(0, 0, rect.width, 210);
       ctx.lineWidth = 18;
-      ctx.strokeStyle = "#d7dfdb";
+      ctx.strokeStyle = "#d9e2e7";
       ctx.beginPath();
       ctx.arc(cx, 116, 72, Math.PI, 0);
       ctx.stroke();
-      ctx.strokeStyle = score > 80 ? "#2d7650" : "#ad7a25";
+      ctx.strokeStyle = score > 80 ? "#0c4b33" : "#b88217";
       ctx.beginPath();
       ctx.arc(cx, 116, 72, Math.PI, Math.PI + Math.PI * (score / 100));
       ctx.stroke();
-      ctx.fillStyle = "#18221d";
-      ctx.font = "700 30px Arial";
+      ctx.fillStyle = "#111827";
+      ctx.font = "700 30px Consolas, 'Courier New', monospace";
       ctx.textAlign = "center";
       ctx.fillText(`${score}%`, cx, 122);
-      ctx.font = "13px Arial";
+      ctx.font = "13px Consolas, 'Courier New', monospace";
       ctx.fillText("εμπιστοσύνη ελέγχου", cx, 146);
       ctx.textAlign = "left";
     }
