@@ -1,53 +1,168 @@
-# Ανάλυση εργασιών υλοποίησης
+# Task Breakdown
 
-Το αποθετήριο περιέχει MVP χωρίς εξωτερικές εξαρτήσεις, με ελληνική διεπαφή ως πρώτη έκδοση και επιλογή αγγλικής εναλλακτικής προβολής.
+This document tracks the notable MVP work completed so far and the next implementation steps.
 
-## Ενότητα 1: Ταυτότητα και πρόσβαση
+## Completed
 
-- Υλοποιημένο: σύνδεση, ξεχωριστή εγγραφή, ΑΦΜ/κωδικός, έλεγχος δημόσιας ακεραιότητας, `off_the_hook`, `enhanced_audit`.
-- Επόμενα: πραγματική ταυτοποίηση, hashing κωδικών, sessions, ανάκτηση λογαριασμού, εξουσιοδοτημένη πρόσβαση λογιστών και συνεταιρισμών.
+### Branding And UI
 
-## Ενότητα 2: Αγροτεμάχια και μέτρηση
+- Renamed visible dashboard brand from `AgroLedger` to `OPEKEPE`.
+- Kept internal package/API names stable for compatibility.
+- Restyled the dashboard with a Python/Django-inspired visual direction.
+- Added Python/Django palette, console-style sidebar, admin-style cards, and updated chart colors.
+- Moved `EL / EN` language buttons to the bottom-left of the UI.
 
-- Υλοποιημένο: GeoJSON, εκτίμηση εκταρίων, centroid, τύπος δικαιώματος, flags δημόσιας/προστατευόμενης γης.
-- Επόμενα: PostGIS, Κτηματολόγιο, δημόσιες εκτάσεις, versioning και επίλυση overlaps.
+### Browser Dashboard
 
-## Ενότητα 3: Χάρτες και τηλεπισκόπηση
+- Kept the dashboard served from the local Python HTTP app.
+- Added role selector to sign-in.
+- Added role-aware navigation and role-aware dashboard panels.
+- Added `Reports` section.
+- Added `Applicants` admin section.
 
-- Υλοποιημένο: Google Maps links, Earth Engine adapter contracts, καιρός εντός πρόβλεψης καλλιέργειας.
-- Επόμενα: πραγματικό map editing, NDVI/EVI, ταξινόμηση καλλιεργειών, ζημιές από πλημμύρα/ξηρασία/πυρκαγιά.
+### Applicant Role
 
-## Ενότητα 4: Παραγωγή ανά εκτάριο
+- Applicant can view:
+  - Overview
+  - Documents
+  - Land
+  - Forecast
+  - Finance
+  - Crisis
+- Applicant can submit evidence and documents.
+- Added applicant finance/techno-economic view:
+  - Expected subsidy
+  - Subsidies owed back / offsets
+  - Expected disbursable amount
+  - Projected gross crop income
+  - Projected by-product income
+  - Cost exposure
+  - Estimated net margin
+  - Market cap at max yield
+  - Market-flow events
+- Added applicant crisis view:
+  - Crisis evidence guidance
+  - Weather/damage/financial evidence categories
+  - Government coverage estimate
+  - Crisis payment scenarios
 
-- Υλοποιημένο: καλλιεργητικές περίοδοι, τύπος παραγωγής, δηλωμένη/επαληθευμένη απόδοση, confidence.
-- Επόμενα: υπο-αγροτεμάχια, κτηνοτροφικοί έλεγχοι, queues γεωπόνων.
+### Admin Role
 
-## Ενότητα 5: Οικονομικά, προϊόντα και υποπροϊόντα
+- Admin can view all sections:
+  - Overview
+  - Applicants
+  - Documents
+  - Land
+  - Forecast
+  - Audit
+  - Finance
+  - Crisis
+  - Reports
+- Added admin role-management table.
+- Added admin applicants/operations page:
+  - Total applicants
+  - Documents in system
+  - Audit events
+  - Economic records
+  - Crisis cases
+  - All applicants table
+  - Load-balancing table
+  - Service-window overview
+  - Admin quick actions
 
-- Υλοποιημένο: πρώτη πώληση, φόρος, market cap, τιμές προϊόντων/υποπροϊόντων, έσοδα, γραφήματα.
-- Επόμενα: AADE myDATA, συνεταιριστικές εκκαθαρίσεις, επίσημες αγοραίες τιμές και benchmark tables.
+### Auditor Role
 
-## Ενότητα 6: Ενισχύσεις και οφειλές
+- Auditor view is intentionally scoped to:
+  - Overview
+  - Documents
+  - Finance
+- Auditor document view shows:
+  - Document object
+  - File name
+  - Audit mode
+  - Risk
+- Auditor finance view shows related economic-analysis objects:
+  - Declared yield plan
+  - Subsidy calculation
+  - Debt offset
+  - First-sale deductions
+  - By-product market value
+  - Maximum market cap
 
-- Υλοποιημένο: κανόνες ανά εκτάριο, eco bonuses, holds, συμψηφισμός οφειλών, risk flags.
-- Επόμενα: πλήρη CAP schemes, batches πληρωμών, appeals, κυρώσεις και four-eyes approval.
+### Reporting
 
-## Ενότητα 7: Κρίσεις και αποζημιώσεις
+- Added local JSON report generation for admin/auditor roles.
+- Reports include:
+  - Applicant identity
+  - Integrity status
+  - Documents
+  - Audit findings
+  - Finance exposure
+  - Crisis state
 
-- Υλοποιημένο: γεωφραγμένα συμβάντα, ζημιές, annual cap, ακαθάριστη αποζημίωση και crisis graphs.
-- Επόμενα: επίσημες δηλώσεις καταστροφών, ασφαλιστικά στοιχεία, προκαταβολές, τελικές εκκαθαρίσεις και ενστάσεις.
+### API And Data
 
-## Ενότητα 8: Έλεγχος και αναφορές
+- Added `applicants` to `/dashboard/data`.
+- Preserved existing JSON API endpoints.
+- Preserved demo SQLite database workflow.
 
-- Υλοποιημένο: audit events, προβολή standard/close audit, applicant review actions, annual ledger.
-- Επόμενα: WORM storage, public transparency filters, risk heatmaps και case management.
+### Verification
 
-## Ενότητα 9: API και λειτουργία
+- Python compile check passes.
+- Unit/API test suite passes with 14 tests.
 
-- Υλοποιημένο: JSON API για health, dashboard, applicant screening, documents, farmers, parcels, crop seasons, claims, crises και annual ledger.
-- Επόμενα: authentication, authorization, validation schemas, rate limiting και OpenAPI.
+## In Progress / Known MVP Limitations
 
-## Ενότητα 10: Πύλη browser
+- Role permissions are currently client-side UI rules.
+- There is no real login or persisted user account table yet.
+- Admin/auditor assignment is not persisted.
+- Reports are generated client-side and not stored.
+- External government, cadastral, weather, AADE/myDATA, and payment integrations are still demo concepts.
+- UI tests are not yet implemented.
 
-- Υλοποιημένο: ελληνική πρώτη έκδοση, επιλογέας `EL / EN`, login/register, dashboard tabs, forecast, financial graphs και crisis views.
-- Επόμενα: accessibility review, mobile testing, persistent accounts και end-to-end UI tests.
+## Next Steps
+
+### Authentication And Authorization
+
+- Add persisted users.
+- Add server-side sessions.
+- Store role assignments in SQLite.
+- Enforce role permissions on API routes.
+- Add applicant ownership checks.
+- Add auditor assignment to specific applicant records or regions.
+
+### Admin Operations
+
+- Persist load-balancing queue state.
+- Add queue assignment actions.
+- Add status transitions for each operational window.
+- Add admin filters for applicant status, risk, region, and document completeness.
+
+### Auditor Workflow
+
+- Add audit case assignment.
+- Add auditor notes and decisions.
+- Add document-level status transitions.
+- Add economic-object review status.
+- Add report approval/sign-off.
+
+### Applicant Workflow
+
+- Add richer crisis incident submission forms.
+- Add structured evidence metadata.
+- Add applicant-facing document completeness progress.
+- Add market-flow timeline and exportable finance summary.
+
+### Reporting
+
+- Generate reports server-side.
+- Store report snapshots.
+- Add PDF/CSV export.
+- Add immutable audit trail for generated reports.
+
+### Platform
+
+- Add OpenAPI docs.
+- Add end-to-end UI tests.
+- Move geospatial storage to PostGIS for production.
+- Add official registry, weather, cadastral, AADE/myDATA, and payment integrations.

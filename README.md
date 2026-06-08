@@ -1,134 +1,164 @@
-# AgroLedger Greece - Ψηφιακό σύστημα αγροτικών ενισχύσεων
+# OPEKEPE System
 
-Το **AgroLedger Greece** είναι ένα καθαρό, επεκτάσιμο πρωτότυπο για ένα νέο πληροφοριακό σύστημα αγροτικών ενισχύσεων, ελέγχων και αποζημιώσεων για την Ελλάδα. Σκοπός του έργου είναι να δείξει πώς μπορεί να λειτουργεί μια σύγχρονη πλατφόρμα για το Υπουργείο Αγροτικής Ανάπτυξης και Τροφίμων και τους φορείς πληρωμών, με πλήρη ιχνηλασιμότητα, διαφάνεια και ελεγκτική τεκμηρίωση.
+OPEKEPE System is a local Python MVP for agricultural subsidy, audit, crisis-compensation, and techno-economic review workflows. It provides a browser dashboard and JSON API for demonstrating how applicant declarations, land evidence, crop plans, financial records, audit history, role-based access, and crisis evidence can be connected into one traceable service.
 
-Το σύστημα συνδέει σε μία ενιαία εικόνα:
+The browser UI is branded as **OPEKEPE** and uses a Python/Django-inspired dashboard style. The internal Python package is still named `agropekepe`, and the demo SQLite database is still `agroledger.sqlite3`, so existing imports, commands, and tests remain stable.
 
-- την ταυτότητα του αιτούντος,
-- τη δήλωση γης και αγροτεμαχίων,
-- την παραγωγή και τις αποδόσεις,
-- τα οικονομικά στοιχεία και τα τιμολόγια πρώτης πώλησης,
-- τους φορολογικούς και οφειλόμενους συμψηφισμούς,
-- τον υπολογισμό ενισχύσεων ΚΑΠ,
-- τα δικαιολογητικά,
-- την ελεγκτική ανάλυση,
-- τις προβλέψεις καλλιεργειών και αγοράς,
-- τις κρίσεις, ζημιές και αποζημιώσεις.
+## Current Features
 
-## Σκοπός έργου
+- Local browser portal served by a dependency-free Python HTTP server.
+- OPEKEPE-branded dashboard with Python/Django-inspired styling.
+- Language selector `EL / EN`, now fixed at the bottom-left of the UI.
+- Role selector at sign-in with `Applicant`, `Admin`, and `Auditor` views.
+- Applicant registration and public-integrity screening.
+- Applicant document upload flow for identity, land, finance, bank, and crisis evidence.
+- Land declaration view with Google Maps center, Google Earth KML, and GeoJSON actions.
+- Crop forecast and techno-economic analysis for expected yield, subsidy, costs, net margin, market cap, products, and by-products.
+- Applicant finance view with expected subsidy, owed-back offsets, disbursable amount, and market-flow events.
+- Applicant crisis incident view for weather or other crop-damage evidence, government coverage estimates, and compensation scenarios.
+- Admin applicants page with total applicants, service-window counts, load-balancing queues, and operational recommendations.
+- Admin role-management table for the configured role privileges.
+- Auditor view scoped to applicant document objects and related economic-analysis objects.
+- Reports page for admin/auditor JSON report generation.
+- JSON API endpoints and unit/API tests for the service core.
 
-Το έργο στοχεύει σε ένα νέο μοντέλο αγροτικής διοίκησης όπου κάθε πληρωμή είναι:
+## Roles
 
-1. **Εξηγήσιμη** - κάθε ποσό συνδέεται με κανόνες, εκτάσεις, παραγωγή, δικαιολογητικά και αποφάσεις.
-2. **Γεωχωρικά επαληθεύσιμη** - κάθε αγροτεμάχιο έχει όρια, μετρημένη έκταση και δυνατότητα ελέγχου μέσω χάρτη/τηλεπισκόπησης.
-3. **Οικονομικά συμφωνημένη** - η δηλωμένη παραγωγή συγκρίνεται με τιμολόγια, τιμές αγοράς, φόρους, προϊόντα και υποπροϊόντα.
-4. **Ελεγκτικά ανθεκτική** - κάθε ενέργεια αφήνει ίχνος και οι υψηλού κινδύνου περιπτώσεις μπαίνουν σε στενότερο έλεγχο.
-5. **Προσαρμόσιμη** - οι κανόνες ΚΑΠ, οι συντελεστές, τα όρια, οι αποζημιώσεις και οι φορολογικές ρυθμίσεις φορτώνονται από παραμετροποιήσιμα αρχεία.
+### Applicant
 
-## Κύρια χαρακτηριστικά
+Applicants can see their own operational workspace:
 
-- Καθαρή οθόνη σύνδεσης στα ελληνικά.
-- Επιλογέας γλώσσας `EL / EN`, με ελληνικά ως προεπιλογή και αγγλικά ως εναλλακτική προβολή.
-- Ξεχωριστή φόρμα εγγραφής νέου αιτούντος.
-- Έλεγχος δημόσιας ακεραιότητας/σύγκρουσης συμφερόντων κατά την εγγραφή.
-- Κατάσταση `off_the_hook` για καθαρή εγγραφή και `enhanced_audit` για περιπτώσεις στενότερου ελέγχου.
-- Δρομολόγηση δικαιολογητικών σε `standard_audit` ή `close_audit`.
-- Δήλωση γης με Google Maps link, Google Earth KML και GeoJSON.
-- Πρόβλεψη καλλιέργειας με καιρικό σήμα μέσα στην ίδια υπηρεσία, χωρίς ξεχωριστή οθόνη καιρού.
-- Βάση αποδόσεων καλλιεργειών με τεχνοοικονομική ανάλυση.
-- Οικονομική καρτέλα με επιλογή δηλωμένης απόδοσης, μέγιστη αγοραία αξία, τιμές προϊόντων/υποπροϊόντων, έσοδα και γραφήματα.
-- Υπολογισμός ενισχύσεων, συμψηφισμών, κρίσεων και αποζημιώσεων.
-- Τοπικό JSON API χωρίς εξωτερικές εξαρτήσεις.
-- Unit και API tests για τον πυρήνα της εφαρμογής.
+- Overview
+- Documents
+- Land declaration
+- Crop forecast
+- Finance
+- Crisis management
 
-## Ασφάλεια και ευαίσθητα δεδομένα
+Applicants can submit documents and crisis evidence, inspect their expected subsidy, see subsidy offsets owed back, review expected disbursable support, and understand crop/yield market cap and by-product income.
 
-Η ροή ελέγχου αιτούντος χρησιμοποιεί δηλώσεις δημόσιου αξιώματος/σύγκρουσης συμφερόντων και ουδέτερη αντιστοίχιση με βάσεις δημόσιας ακεραιότητας. Δεν συλλέγεται, δεν αποθηκεύεται και δεν χρησιμοποιείται πολιτική προτίμηση ή κομματική ένταξη.
+### Admin
 
-Τα internal API identifiers παραμένουν στα αγγλικά, όπως `farmer_id`, `crop_forecast`, `enhanced_audit`, επειδή αποτελούν συμβόλαια κώδικα και tests. Η διεπαφή χρήστη και η τεκμηρίωση είναι στα ελληνικά.
+Admins can see every dashboard window:
 
-## Περιεχόμενα αποθετηρίου
+- Overview
+- Applicants
+- Documents
+- Land declaration
+- Crop forecast
+- Audit analysis
+- Finance
+- Crisis management
+- Reports
 
-- [`docs/product_blueprint.md`](docs/product_blueprint.md) - λειτουργικό blueprint προϊόντος.
-- [`docs/architecture.md`](docs/architecture.md) - αρχιτεκτονική συστήματος, APIs και διακυβέρνηση.
-- [`docs/task_breakdown.md`](docs/task_breakdown.md) - υλοποιημένα tracks και επόμενα βήματα.
-- [`configs/cap_rules.example.json`](configs/cap_rules.example.json) - παράδειγμα παραμετροποίησης κανόνων ΚΑΠ.
-- [`src/agropekepe/app.py`](src/agropekepe/app.py) - JSON API και browser portal.
-- [`src/agropekepe/cli.py`](src/agropekepe/cli.py) - εντολές αρχικοποίησης, demo και server.
-- [`src/agropekepe/services.py`](src/agropekepe/services.py) - application service layer.
-- [`src/agropekepe/eligibility.py`](src/agropekepe/eligibility.py) - μηχανή επιλεξιμότητας και πληρωμής.
-- [`src/agropekepe/integrations.py`](src/agropekepe/integrations.py) - adapters για χάρτες, τηλεπισκόπηση, καιρό και εξωτερικές υπηρεσίες.
-- [`tests`](tests) - unit και API tests.
+Admins also get a dedicated applicants/operations page with:
 
-## Εκκίνηση σε Windows PowerShell
+- All applicants in the current system snapshot
+- Total applicant count
+- Document, audit, economic, and crisis record counts
+- Load-balancing recommendations by operational window
+- Service-window status table
+- Role-management overview
 
-Ανοίξτε τερματικό στον φάκελο του έργου:
+### Auditor
+
+Auditors are intentionally restricted to review surfaces:
+
+- Overview
+- Documents
+- Finance
+
+The auditor document page shows applicant document objects, audit mode, file name, and risk. The auditor finance page shows related economic-analysis objects such as declared yield plan, subsidy calculation, debt offset, first-sale deductions, by-product value, and maximum market cap.
+
+## Repository Contents
+
+- `src/agropekepe/app.py` - JSON API and browser dashboard.
+- `src/agropekepe/cli.py` - command-line entry point for database setup, demo data, and serving.
+- `src/agropekepe/services.py` - application service layer.
+- `src/agropekepe/repository.py` - SQLite persistence layer.
+- `src/agropekepe/eligibility.py` - subsidy eligibility and payment calculation rules.
+- `src/agropekepe/integrations.py` - adapter-style helpers for maps, weather, and external-service concepts.
+- `configs/cap_rules.example.json` - example CAP rule configuration.
+- `docs/product_blueprint.md` - product and workflow blueprint.
+- `docs/architecture.md` - technical architecture and API notes.
+- `docs/task_breakdown.md` - implementation status and next tasks.
+- `tests` - unit and API tests.
+
+## Run Locally
+
+Open PowerShell in the project folder:
 
 ```powershell
 cd C:\Users\user\Documents\OPEKEPE-SYSTEM-main
 ```
 
-Έλεγχος Python:
+Check Python:
 
 ```powershell
 py --version
 ```
 
-Εκτέλεση tests:
+Run tests:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -m unittest discover -s tests
 ```
 
-Αρχικοποίηση βάσης SQLite:
+Initialize the SQLite database:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -m agropekepe.cli --database .\agroledger.sqlite3 init-db
 ```
 
-Εκκίνηση εφαρμογής:
+Start the application:
 
 ```powershell
 $env:PYTHONPATH = "src"
 py -m agropekepe.cli --database .\agroledger.sqlite3 serve --host 127.0.0.1 --port 8080
 ```
 
-Αφήστε το τερματικό ανοικτό και ανοίξτε:
+Open:
 
 ```text
 http://127.0.0.1:8080/
 ```
 
-Έλεγχος υγείας υπηρεσίας:
+Health check:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8080/health
 ```
 
-## Βασικά API endpoints
+## API Endpoints
 
-- `GET /health` - έλεγχος λειτουργίας.
-- `GET /dashboard/data` - δεδομένα dashboard.
-- `POST /applicant-screening` - έλεγχος εγγραφής αιτούντος.
-- `POST /documents` - υποβολή μεταδεδομένων δικαιολογητικού.
-- `POST /farmers` - δημιουργία δικαιούχου.
-- `POST /parcels` - καταχώριση αγροτεμαχίου.
-- `POST /crop-seasons` - δήλωση καλλιεργητικής περιόδου.
-- `POST /subsidy-claims/calculate` - υπολογισμός ενίσχυσης.
-- `POST /crisis-events` - δήλωση συμβάντος κρίσης.
-- `POST /compensation-claims/calculate` - υπολογισμός αποζημίωσης.
-- `GET /annual-ledger` - ετήσια εικόνα παραγωγής, φόρων, οφειλών, ενισχύσεων και αποζημιώσεων.
+- `GET /health` - service health check.
+- `GET /dashboard/data` - initialized dashboard snapshot.
+- `POST /applicant-screening` - applicant public-integrity screening.
+- `POST /documents` - document metadata and audit analysis submission.
+- `POST /farmers` - farmer/applicant creation.
+- `POST /parcels` - parcel registration.
+- `POST /crop-seasons` - crop-season registration.
+- `POST /remote-sensing` - remote-sensing observation registration.
+- `POST /first-sales` - first-sale and tax registration.
+- `POST /debts` - debt registration for subsidy offsets.
+- `POST /subsidy-claims/calculate` - annual subsidy calculation.
+- `POST /crisis-events` - crisis incident declaration.
+- `POST /compensation-claims/calculate` - crisis compensation calculation.
+- `GET /annual-ledger` - annual farmer ledger.
+- `GET /audit/events` - audit event list.
 
-## Τρέχουσα κατάσταση MVP
+## Current MVP Boundaries
 
-Το MVP είναι τοπικό και demo-oriented. Παρέχει λειτουργική εμπειρία για παρουσίαση και δοκιμή αρχιτεκτονικής, όχι παραγωγική σύνδεση με πραγματικά κρατικά μητρώα. Τα επόμενα παραγωγικά βήματα είναι:
+This is a local demo MVP. It does not yet include production authentication, persistent user accounts, real government registry integrations, real payment rails, or production-grade geospatial infrastructure.
 
-- πραγματική ταυτοποίηση και authentication,
-- μόνιμοι λογαριασμοί αιτούντων,
-- επίσημες βάσεις δημόσιας ακεραιότητας/σύγκρουσης συμφερόντων,
-- PostGIS για γεωχωρική ακρίβεια,
-- επίσημη διασύνδεση με Κτηματολόγιο, AADE/myDATA, καιρικά δεδομένα και payment rails,
-- WORM/tamper-resistant audit storage,
-- OpenAPI τεκμηρίωση και end-to-end UI tests.
+Recommended next steps:
+
+- Replace demo role selector with authenticated user accounts and server-side authorization.
+- Persist role assignments and applicant-user relationships.
+- Add OpenAPI documentation.
+- Add end-to-end UI tests for role-specific navigation.
+- Integrate official registries, AADE/myDATA, cadastral systems, weather evidence, and payment systems.
+- Move geospatial storage to PostGIS for production use.
+- Add tamper-resistant/WORM audit storage.
