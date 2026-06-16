@@ -11,6 +11,10 @@
 - [Ανάλυση Εργασιών](docs/el/task_breakdown.md)
 - [English README](README.en.md)
 
+## Άδεια
+
+Το έργο παρέχεται με την [MIT License](LICENSE).
+
 ## Τρέχουσες Δυνατότητες
 
 - Τοπική πύλη browser από Python HTTP server χωρίς εξωτερικές εξαρτήσεις.

@@ -11,6 +11,10 @@ The browser dashboard is branded as **OPEKEPE**. The internal Python package rem
 - [Task Breakdown](docs/task_breakdown.md)
 - [Greek README / Ελληνικό README](README.el.md)
 
+## License
+
+This project is provided under the [MIT License](LICENSE).
+
 ## Current Features
 
 - Local browser portal served by a dependency-free Python HTTP server.
