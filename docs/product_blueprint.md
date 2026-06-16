@@ -1,13 +1,15 @@
 # Product Blueprint
 
-OPEKEPE System is an MVP for a role-based agricultural subsidy and crisis-compensation platform. It demonstrates how applicants, admins, and auditors can interact with the same underlying applicant record while seeing different workflows based on privileges.
+OPEKEPE System is a local MVP for a role-based agricultural subsidy, audit, crisis-compensation, and techno-economic review platform. It demonstrates how applicants, administrators, and auditors can work from the same applicant record while seeing workflows tailored to their permissions.
+
+Greek version: [docs/el/product_blueprint.md](el/product_blueprint.md)
 
 ## Product Goals
 
-- Provide a clear OPEKEPE-branded dashboard for agricultural support workflows.
+- Provide a clear OPEKEPE-branded workspace for agricultural support workflows.
 - Connect applicant identity, land declaration, documents, crop plans, financial evidence, subsidy calculations, crisis evidence, and audit history.
-- Give applicants practical estimates of expected subsidy, owed-back offsets, crop market cap, by-products, and government coverage after crisis incidents.
-- Give admins an operational view of all applicants, service windows, and workload balancing.
+- Give applicants practical estimates for expected subsidy, owed-back offsets, crop market cap, by-product value, and government coverage after crisis incidents.
+- Give admins an operational view of applicants, service windows, workload queues, and role privileges.
 - Give auditors a focused review view of applicant documents and related economic-analysis objects.
 
 ## User Roles
@@ -16,13 +18,13 @@ OPEKEPE System is an MVP for a role-based agricultural subsidy and crisis-compen
 
 Applicant workflows:
 
-- Register or sign in as applicant.
-- View own application overview.
-- Upload required documents.
-- Declare land through map/KML/GeoJSON-oriented workflows.
+- Register or sign in as an applicant.
+- Review the personal application overview.
+- Upload required documents and crisis evidence.
+- Declare land using map, KML, and GeoJSON-oriented workflows.
 - Review crop forecast and techno-economic analysis.
-- Review finance page with expected subsidy, offsets, disbursable amount, product income, by-product income, and market cap.
-- Submit crisis evidence for weather or other crop-damage events.
+- Review expected subsidy, offsets, disbursable support, product income, by-product income, and market cap.
+- Submit evidence for weather or other crop-damage events.
 - Review government coverage and compensation estimates.
 
 Applicant pages:
@@ -39,12 +41,12 @@ Applicant pages:
 Admin workflows:
 
 - View all applicants in the current system snapshot.
-- See total applicants, document count, audit events, economic record count, and crisis cases.
-- Inspect service-window status.
+- Inspect applicant totals, document counts, audit events, economic records, and crisis cases.
+- Monitor service-window status and queue load.
 - Review load-balancing recommendations for intake, documents, audit, economic analysis, crisis incidents, and reports.
 - Access every dashboard page.
 - Inspect role-management configuration.
-- Produce reports.
+- Produce JSON reports.
 
 Admin pages:
 
@@ -62,9 +64,9 @@ Admin pages:
 
 Auditor workflows:
 
-- Review applicant documents.
-- Inspect document audit modes and risks.
-- Review related economic-analysis objects only.
+- Review applicant document objects.
+- Inspect document audit mode, file name, and risk.
+- Review related economic-analysis objects.
 - Compare yield plan, subsidy, debt offsets, first-sale deductions, by-product value, and market cap.
 
 Auditor pages:
@@ -75,21 +77,21 @@ Auditor pages:
 
 ## Dashboard Experience
 
-The dashboard uses:
+The dashboard includes:
 
-- OPEKEPE name in the visible UI.
-- Python/Django-inspired visual style.
-- Fixed bottom-left language selector.
+- OPEKEPE visible branding.
+- Python/Django-inspired styling.
+- Fixed bottom-left `EL / EN` language selector.
 - Role selector at sign-in.
 - Permission-gated navigation.
-- Role-specific cards and tables.
+- Role-specific cards, tables, and charts.
 - Canvas charts for finance, crop forecast, crisis, and audit confidence.
 
 ## Core Workflows
 
 ### Applicant Screening
 
-Applicant registration checks public-integrity exposure and local disclosure matches. The result routes the applicant into either:
+Applicant registration checks public-integrity exposure and local disclosure matches. The screening result routes the applicant into either:
 
 - `off_the_hook`
 - `enhanced_audit`
@@ -103,13 +105,13 @@ Document audit mode is then set as:
 
 Required document categories:
 
-- Identity/tax certificate
+- Identity or tax certificate
 - Land title, lease, or cadastral extract
 - Financial records and invoices
 - IBAN proof
 - Crisis incident evidence
 
-Documents receive risk and audit metadata when submitted.
+Submitted documents receive risk and audit metadata.
 
 ### Crop Forecast And Finance
 
@@ -129,7 +131,7 @@ The system estimates:
 
 ### Crisis Incident
 
-Applicants can submit evidence for crop damage caused by weather or other conditions. The current MVP models evidence such as:
+Applicants can submit evidence for crop damage caused by weather or other conditions. The MVP models evidence such as:
 
 - Rainfall deficit
 - Flood trace
@@ -144,20 +146,13 @@ Applicants can submit evidence for crop damage caused by weather or other condit
 - Repair costs
 - Lost production value
 
-The crisis page estimates:
-
-- Gross crisis payment
-- Property value exposed
-- Property destruction loss
-- Collective revenue loss
-- Net subsidy after offsets
-- Review status
+The crisis page estimates gross crisis payment, exposed property value, destruction loss, collective revenue loss, net subsidy after offsets, and review status.
 
 ### Admin Operations
 
 The admin Applicants page provides:
 
-- All applicants table
+- All-applicants table
 - Applicant totals
 - Operational queue counts
 - Service-window view
@@ -177,7 +172,7 @@ Admin and auditor users can produce a local JSON report containing:
 
 ## MVP Constraints
 
-- This is a local demo.
+- The system is a local demo.
 - Role permissions are currently client-side.
 - User accounts are not persisted.
 - Reports are generated client-side.

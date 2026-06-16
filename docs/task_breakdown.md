@@ -1,15 +1,17 @@
 # Task Breakdown
 
-This document tracks the notable MVP work completed so far and the next implementation steps.
+This document tracks the notable MVP work completed so far, known limitations, and recommended next implementation steps.
+
+Greek version: [docs/el/task_breakdown.md](el/task_breakdown.md)
 
 ## Completed
 
 ### Branding And UI
 
-- Renamed visible dashboard brand from `AgroLedger` to `OPEKEPE`.
+- Renamed the visible dashboard brand from `AgroLedger` to `OPEKEPE`.
 - Kept internal package/API names stable for compatibility.
 - Restyled the dashboard with a Python/Django-inspired visual direction.
-- Added Python/Django palette, console-style sidebar, admin-style cards, and updated chart colors.
+- Added a Python/Django palette, console-style sidebar, admin-style cards, and updated chart colors.
 - Moved `EL / EN` language buttons to the bottom-left of the UI.
 
 ### Browser Dashboard
@@ -22,15 +24,9 @@ This document tracks the notable MVP work completed so far and the next implemen
 
 ### Applicant Role
 
-- Applicant can view:
-  - Overview
-  - Documents
-  - Land
-  - Forecast
-  - Finance
-  - Crisis
+- Applicant can view overview, documents, land, forecast, finance, and crisis sections.
 - Applicant can submit evidence and documents.
-- Added applicant finance/techno-economic view:
+- Added applicant finance and techno-economic view with:
   - Expected subsidy
   - Subsidies owed back / offsets
   - Expected disbursable amount
@@ -38,44 +34,32 @@ This document tracks the notable MVP work completed so far and the next implemen
   - Projected by-product income
   - Cost exposure
   - Estimated net margin
-  - Market cap at max yield
+  - Market cap at maximum yield
   - Market-flow events
-- Added applicant crisis view:
+- Added applicant crisis view with:
   - Crisis evidence guidance
-  - Weather/damage/financial evidence categories
+  - Weather, damage, and financial evidence categories
   - Government coverage estimate
   - Crisis payment scenarios
 
 ### Admin Role
 
-- Admin can view all sections:
-  - Overview
-  - Applicants
-  - Documents
-  - Land
-  - Forecast
-  - Audit
-  - Finance
-  - Crisis
-  - Reports
+- Admin can view all sections: overview, applicants, documents, land, forecast, audit, finance, crisis, and reports.
 - Added admin role-management table.
-- Added admin applicants/operations page:
+- Added admin applicants/operations page with:
   - Total applicants
   - Documents in system
   - Audit events
   - Economic records
   - Crisis cases
-  - All applicants table
+  - All-applicants table
   - Load-balancing table
   - Service-window overview
   - Admin quick actions
 
 ### Auditor Role
 
-- Auditor view is intentionally scoped to:
-  - Overview
-  - Documents
-  - Finance
+- Auditor view is intentionally scoped to overview, documents, and finance.
 - Auditor document view shows:
   - Document object
   - File name

@@ -1,8 +1,10 @@
 # Architecture
 
-OPEKEPE System is a local Python MVP with a dependency-free HTTP server, SQLite persistence, a browser dashboard, and JSON API routes. The current implementation favors portability and demo clarity over production framework complexity.
+OPEKEPE System is a local Python MVP with a dependency-free HTTP server, SQLite persistence, a browser dashboard, and JSON API routes. The implementation favors portability and demo clarity over production framework complexity.
 
-The browser-facing product is branded as **OPEKEPE**. Internal Python names such as `agropekepe`, `AgroLedgerService`, and `agroledger.sqlite3` remain for compatibility with existing commands and tests.
+Greek version: [docs/el/architecture.md](el/architecture.md)
+
+The browser product is branded as **OPEKEPE**. Internal Python names such as `agropekepe`, `AgroLedgerService`, and `agroledger.sqlite3` remain in place for compatibility with existing commands and tests.
 
 ## Runtime Shape
 
@@ -35,7 +37,7 @@ SQLite database
   - Provides `init-db`, demo setup, and `serve` commands.
 
 - `services.py`
-  - Coordinates domain workflows: farmer registration, parcel registration, production enrollment, first sales, debts, subsidy calculations, crisis events, and compensation.
+  - Coordinates farmer registration, parcel registration, production enrollment, first sales, debts, subsidy calculations, crisis events, and compensation workflows.
 
 - `repository.py`
   - Owns SQLite persistence and audit-event recording.
@@ -44,7 +46,7 @@ SQLite database
   - Loads CAP-style rules and calculates subsidy eligibility.
 
 - `integrations.py`
-  - Holds adapter-style helpers for map/weather/remote-sensing concepts.
+  - Holds adapter-style helpers for map, weather, and remote-sensing concepts.
 
 ## Dashboard Architecture
 
@@ -52,17 +54,17 @@ The dashboard is currently a single inline HTML document embedded in `app.py`. I
 
 - OPEKEPE branding.
 - Python/Django-inspired visual styling.
-- Bottom-left `EL / EN` language switcher.
+- Bottom-left `EL / EN` language selector.
 - Role selector at sign-in.
 - Role-aware client-side navigation.
-- Canvas-based dashboard charts.
+- Canvas-based charts.
 - Client-side report generation for admin/auditor JSON reports.
 
 The dashboard calls local API endpoints using `fetch`.
 
 ## Role Model
 
-The MVP role model is implemented in dashboard JavaScript as a client-side permission map. It is useful for demo and workflow design, but it is not production authorization.
+The MVP role model is implemented in dashboard JavaScript as a client-side permission map. It is useful for demos and workflow design, but it is not production authorization.
 
 ### Applicant
 
@@ -137,15 +139,15 @@ Auditor-specific UI:
 ## Data Flow
 
 1. The browser loads `/`.
-2. User selects a role and signs in.
-3. Browser calls `/dashboard/data`.
+2. The user selects a role and signs in.
+3. The browser calls `/dashboard/data`.
 4. If the database is empty, demo data is initialized.
 5. The response includes summary counts, applicant records, documents, subsidy claim, compensation, annual ledger, land state, crop forecast, financial analysis, audit analysis, crisis management, and audit events.
-6. The dashboard renders the allowed role-specific sections.
+6. The dashboard renders the sections allowed for the selected role.
 
 ## Reporting
 
-Admin and auditor users can generate a local JSON report from the Reports page. The generated report includes:
+Admin and auditor users can generate a local JSON report from the Reports page. The report includes:
 
 - Applicant identity
 - Integrity status
